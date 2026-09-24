@@ -1,0 +1,31 @@
+{
+  "name": "pg-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "./build-wasm.sh",
+    "build:prod": "MODE=production ./build-wasm.sh",
+    "dev": "./build-wasm.sh && serve public -l 28000 --single",
+    "size": "./scripts/size-report.sh",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.8.0",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-sql": "^6.7.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.26.0",
+    "@lezer/highlight": "^1.2.4",
+    "canvas-confetti": "^1.9.3",
+    "wasmoon": "^1.16.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.0",
+    "esbuild": "^0.24.0",
+    "serve": "^14.2.0",
+    "tailwindcss": "^3.4.17"
+  }
+}

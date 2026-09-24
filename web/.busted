@@ -1,0 +1,8 @@
+return {
+  default = {
+    ROOT = { "spec" },
+    lpath = "src/?.lua;src/?/init.lua;../shared/src/?.lua;spec/?.lua",
+    helper = "spec/helper.lua",
+    output = "utfTerminal",
+  },
+}

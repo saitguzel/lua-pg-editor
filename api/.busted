@@ -1,0 +1,8 @@
+return {
+  _all = {
+    lpath = "src/?.lua;src/?/init.lua;spec/?.lua",
+    helper = "spec/helpers/bootstrap.lua",
+  },
+  unit = { ROOT = { "spec" }, recursive = false },
+  integration = { ROOT = { "spec/integration" } },
+}

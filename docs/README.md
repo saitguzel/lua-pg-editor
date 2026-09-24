@@ -1,0 +1,65 @@
+# docs — pgLua Dokümantasyon İndeksi
+
+> Bu dizin `lua-pg-editor` (pgLua) projesinin tüm plan ve runbook dokümanlarını içerir.
+> Faz dokümanları `fazlar/` altındadır; her faz kendi `DoD` (Definition of Done) ile bağımsız doğrulanabilir.
+
+## Hızlı Başlangıç (planı okumak)
+
+1. Önce [00-genel-bakis.md](fazlar/00-genel-bakis.md) — **tek doğruluk kaynağı** (SSOT). Env, error kodları, RBAC, audit, teknik kararlar burada.
+2. Sonra fazlar sırasıyla — bağımlılık grafiği 00 §12.
+
+## Faz Haritası
+
+| Faz | Dosya | Ad | Efor | Özet |
+|---|---|---|---|---|
+| 00 | [00-genel-bakis.md](fazlar/00-genel-bakis.md) | Genel Bakış & SSOT | — | Mimari, sözleşmeler, tüm sözlük |
+| 00 | [faz-00-monorepo-altyapi.md](fazlar/faz-00-monorepo-altyapi.md) | Monorepo Altyapı | S | docker-compose, Makefile, lint, git hooks |
+| 01 | [faz-01-shared-kutuphane.md](fazlar/faz-01-shared-kutuphane.md) | Shared Kütüphane | M | types, validation, protocol |
+| 02 | [faz-02-veritabani-migration.md](fazlar/faz-02-veritabani-migration.md) | Veritabanı & Migration | M | users, connections, query_history, audit, rbac |
+| 03 | [faz-03-backend-core.md](fazlar/faz-03-backend-core.md) | Backend Core | L | config, nginx, Lapis, query, router, error |
+| 04 | [faz-04-security.md](fazlar/faz-04-security.md) | Security | M | jwt, argon2, random, AES-GCM |
+| 05 | [faz-05-auth-endpointleri.md](fazlar/faz-05-auth-endpointleri.md) | Auth Endpointleri | L | login/refresh/logout/me/forgot/reset |
+| 06 | [faz-06-baglantilar.md](fazlar/faz-06-baglantilar.md) | Bağlantı Yönetimi | L | CRUD + test + pool_manager + şifreleme |
+| 07 | [faz-07-sema-yapi.md](fazlar/faz-07-sema-yapi.md) | Şema & Yapı | L | schemas, objects, structure (6 sorgu) |
+| 08 | [faz-08-sorgu-motoru-gecmis.md](fazlar/faz-08-sorgu-motoru-gecmis.md) | Sorgu Motoru & Geçmiş | L | execute, history, completion, limit |
+| 09 | [faz-09-tablo-tarayici.md](fazlar/faz-09-tablo-tarayici.md) | Tablo Tarayıcı | L | pagination, filter, insert/duplicate/delete, edit |
+| 10 | [faz-10-obje-eylemleri-script-export.md](fazlar/faz-10-obje-eylemleri-script-export.md) | Obje & Script & CSV | M | rename/truncate/drop, DDL script, CSV export |
+| 11 | [faz-11-kullanici-rbac.md](fazlar/faz-11-kullanici-rbac.md) | Kullanıcı & RBAC | L | user CRUD, matrix |
+| 12 | [faz-12-audit-middleware.md](fazlar/faz-12-audit-middleware.md) | Audit & Middleware | M | audit_context, record, export |
+| 13 | [faz-13-swagger-openapi.md](fazlar/faz-13-swagger-openapi.md) | Swagger/OpenAPI 3.1 | M | spec, redocly |
+| 14 | [faz-14-scheduled-jobs.md](fazlar/faz-14-scheduled-jobs.md) | Scheduled Jobs | S | audit/history cleanup |
+| 15 | [faz-15-backend-test-load-test.md](fazlar/faz-15-backend-test-load-test.md) | Backend Test & Bench | L | busted + wrk |
+| 16 | [faz-16-frontend-iskelet.md](fazlar/faz-16-frontend-iskelet.md) | Frontend İskelet | M | Wasmoon, glue, bundling |
+| 17 | [faz-17-frontend-core.md](fazlar/faz-17-frontend-core.md) | Frontend Core | L | store, dom, fetch, router, editor |
+| 18 | [faz-18-frontend-views-editor-baglantilar.md](fazlar/faz-18-frontend-views-editor-baglantilar.md) | Views I (Bağlantı & Editör) | L | login, connections, query editor |
+| 19 | [faz-19-frontend-views-tarayici-yapi.md](fazlar/faz-19-frontend-views-tarayici-yapi.md) | Views II (Tarayıcı & Yapı) | L | table browser, structure |
+| 20 | [faz-20-frontend-views-admin.md](fazlar/faz-20-frontend-views-admin.md) | Views III (Admin) | M | users, rbac, audit, settings |
+| 21 | [faz-21-frontend-ux-polish.md](fazlar/faz-21-frontend-ux-polish.md) | UX Polish | M | tema, klavye, a11y |
+| 22 | [faz-22-frontend-test-wasm-opt.md](fazlar/faz-22-frontend-test-wasm-opt.md) | Frontend Test & WASM Opt | M | busted, playwright, wasm opt |
+| 23 | [faz-23-deployment-dokumantasyon.md](fazlar/faz-23-deployment-dokumantasyon.md) | Deployment & Dokümantasyon | L | prod compose, TLS, backup |
+
+## Diğer Dokümanlar
+
+- [operations.md](operations.md) — runbook (deploy, rollback, backup/restore, sık sorunlar)
+- [security-checklist.md](security-checklist.md) — canlıya çıkış güvenlik kontrol listesi
+- `../README.md` — proje kök README (hızlı başlangıç, Make komutları)
+
+## Okuma Sırası Önerisi
+
+- **Yeni başlayan**: 00 → 00 → 01 → 02 → 03 (çekirdeği anla).
+- **Backendçi**: 00 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10.
+- **Frontendçi**: 00 → 16 → 17 → 18 → 19 → 21.
+- **DevOps**: 00 → 00 (env §6.1) → 14 → 15 (bench) → 23 → operations.md.
+
+## Faz Bağımlılık Grafiği
+
+```
+F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13 → F14 → F15
+                         └────────────────────────────→ F16 → F17 → F18 → F19 → F20 → F21 → F22 → F23
+```
+
+Paralel: F16 frontend iskelet F5'ten sonra başlayabilir.
+
+## Katkı
+
+Her faz dokümanı `DoD` checkboxes içerir; faz "tamamlandı" sayılmadan önce tüm maddeler yeşil olmalı ve `make lint && make test` temiz olmalı.

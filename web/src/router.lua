@@ -23,6 +23,7 @@ local ROUTES = {
     bundle = "admin" },
   { hash = "#/audit", name = "audit", view = "views.audit_logs", auth = true, page_key = "audit.logs",
     bundle = "admin" },
+  { hash = "#/stats", name = "db_stats", view = "views.db_stats", auth = true, page_key = "dashboard" },
   { hash = "#/profile", name = "profile", view = "views.profile", auth = true },
   { hash = "#/settings", name = "settings", view = "views.settings", auth = true },
 }

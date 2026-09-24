@@ -28,7 +28,7 @@ end
 
 local function fail(err) app.toast("error", err and err.message or protocol.message(err and err.code)) end
 
--- sema degisti: sidebar + autocomplete tazelensin; acik sayfa bu nesneyi gosteriyorsa yonlendir
+-- sema degisti: sidebar + autocomplete tazelensin; acik sayfa bu nesneyi gösteriyorsa yonlendir
 local function after_change(ctx, new_name)
   pcall(function() require("views.schema_sidebar").reload() end)
   local st = app.get_state()

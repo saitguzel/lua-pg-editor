@@ -275,36 +275,36 @@ function _M.render(state, dispatch)
   local failure_count = type(stats.by_status) == "table" and tonumber(stats.by_status.failure) or nil
 
   return dom.section({ ["aria-labelledby"] = "audit-title" },
-    dom.header({ class = "flex items-center justify-between gap-2 mb-4" },
-      dom.h1({ id = "audit-title", class = "text-2xl font-bold flex items-center gap-2", tabindex = "-1" },
-        icons.get("list", "w-6 h-6 text-[var(--primary)]"), "Denetim Kayıtları"),
+    dom.header({ class = "flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4" },
+      dom.h1({ id = "audit-title", class = "text-xl sm:text-2xl font-bold flex items-center gap-2", tabindex = "-1" },
+        icons.get("list", "w-6 h-6 text-[var(--primary)] shrink-0"), "Denetim Kayıtları"),
       icons.button({ icon = st.exporting and "clock" or "download",
         label = st.exporting and "Hazırlanıyor…" or "CSV indir",
-        variant = "secondary", disabled = st.exporting and true or nil,
+        variant = "secondary", class = "w-full sm:w-auto justify-center", disabled = st.exporting and true or nil,
         title = "Denetim kayıtlarını CSV olarak indir",
         onclick = function() export_csv(f) end })),
-    dom.ul({ class = "grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4", role = "list", ["aria-label"] = "Özet" },
+    dom.ul({ class = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4", role = "list", ["aria-label"] = "Özet" },
       stat_li("Toplam", stats.total or meta.total, false, "list"),
       stat_li("Başarısız", failure_count, true, "alert-triangle"),
       stat_li("En çok eylem", top_action and (top_action .. " (" .. top_count .. ")") or nil, false, "zap"),
       stat_li("Günlük kayıt", type(by_day) == "table" and by_day[1] and
         (tonumber(by_day[1].count) or tonumber(by_day[1].total)) or nil, false, "clock")),
-    dom.form({ role = "search", ["aria-label"] = "Audit filtreleri", class = "flex flex-wrap items-end gap-2 mb-4" },
+    dom.form({ role = "search", ["aria-label"] = "Audit filtreleri", class = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 sm:gap-3 mb-4 items-end" },
       dom.div({ class = "flex flex-col" },
         dom.label({ ["for"] = "audit-filter-1", class = "text-xs text-[var(--fg-muted)]" }, "Eylem"),
-        dom.select({ id = "audit-filter-1", value = f.action or "", class = field_cls,
+        dom.select({ id = "audit-filter-1", value = f.action or "", class = field_cls .. " w-full",
           onchange = function(e) set_filters({ action = e.value or "" }) end }, dom.list(action_opts))),
       dom.div({ class = "flex flex-col" },
         dom.label({ ["for"] = "audit-filter-2", class = "text-xs text-[var(--fg-muted)]" }, "Varlık türü"),
-        dom.select({ id = "audit-filter-2", value = f.entity_type or "", class = field_cls,
+        dom.select({ id = "audit-filter-2", value = f.entity_type or "", class = field_cls .. " w-full",
           onchange = function(e) set_filters({ entity_type = e.value or "" }) end }, dom.list(entity_opts))),
       dom.div({ class = "flex flex-col" },
         dom.label({ ["for"] = "audit-filter-3", class = "text-xs text-[var(--fg-muted)]" }, "Kullanıcı"),
-        dom.select({ id = "audit-filter-3", value = f.user_id or "", class = field_cls,
+        dom.select({ id = "audit-filter-3", value = f.user_id or "", class = field_cls .. " w-full",
           onchange = function(e) set_filters({ user_id = e.value or "" }) end }, dom.list(user_opts))),
-      dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)] flex-1 min-w-40" }, "Arama",
+      dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)]" }, "Arama",
         dom.input({
-          type = "search", class = field_cls, value = f.search or "", placeholder = "Eylem/varlık/ip…",
+          type = "search", class = field_cls .. " w-full", value = f.search or "", placeholder = "Eylem/varlık/ip…",
           oninput = function(e)
             if debounce_id then js.timer.cancel(debounce_id) end
             local v = e.value or ""
@@ -313,7 +313,7 @@ function _M.render(state, dispatch)
         })),
       dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)]" }, "Başlangıç",
         dom.input({
-          type = "datetime-local", class = field_cls,
+          type = "datetime-local", class = field_cls .. " w-full",
           value = type(f.from) == "string" and f.from:sub(1, 16) or "",
           onchange = function(e)
             local v = e.value or ""
@@ -323,7 +323,7 @@ function _M.render(state, dispatch)
         })),
       dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)]" }, "Bitiş",
         dom.input({
-          type = "datetime-local", class = field_cls,
+          type = "datetime-local", class = field_cls .. " w-full",
           value = type(f.to) == "string" and f.to:sub(1, 16) or "",
           onchange = function(e)
             local v = e.value or ""
@@ -331,12 +331,12 @@ function _M.render(state, dispatch)
             set_filters({ to = iso })
           end,
         })),
-      icons.button({ icon = "eraser", label = "Filtreleri sıfırla", variant = "ghost",
+      icons.button({ icon = "eraser", label = "Filtreleri sıfırla", variant = "ghost", class = "w-full sm:w-auto justify-center",
         title = "Tüm filtreleri temizle", onclick = function() router.navigate("#/audit") end })),
     (st.status ~= "loading" and #st.items == 0)
       and layout.empty_state({ icon_svg = "list", title = "Kayıt yok", text = "Bu filtrelerle eşleşen denetim kaydı yok" })
-      or dom.div({ class = "overflow-x-auto" },
-        dom.table({ class = "w-full text-sm responsive-table" },
+      or dom.div({ class = "overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0" },
+        dom.table({ class = "w-full text-sm responsive-table min-w-[640px] sm:min-w-0" },
           dom.caption({ class = "sr-only" }, "Denetim kayıtları, " .. (meta.total or 0) .. " kayıt"),
           dom.thead({}, dom.tr({ class = "text-left text-[var(--fg-muted)]" },
             dom.th({ scope = "col", class = "py-2 pr-3", ["aria-sort"] = "descending" }, "Zaman"),

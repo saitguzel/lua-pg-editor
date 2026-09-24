@@ -1,6 +1,6 @@
 -- F21: Genel klavye yoneticisi — shortcuts.lua'yi sarar, app.start tarafindan baslatilir.
--- js.keyboard.onKey -> shortcuts.handle_key baglantisi; ayrica global kisayollari burada kaydeder.
--- Bu dosya shortcuts ile ayni API'yi sunar ama global kisayollarin tek yerden kayitlarini toplar.
+-- js.keyboard.onKey -> shortcuts.handle_key bağlantısi; ayrica global kisayollari burada kaydeder.
+-- Bu dosya shortcuts ile ayni API'yi sunar ama global kisayollarin tek yerden kayıtlarini toplar.
 
 local shortcuts = require("shortcuts")
 local router = require("router")
@@ -40,7 +40,7 @@ function keyboard.setup(app)
   end, "Sorguyu çalıştır (seçim varsa seçimi)")
 
   -- g sekansi icin g tusunu kaydetmiyoruz; shortcuts.handle_key icinde ozel islenir.
-  -- Ama help modalinda g d/c/q aciklamalari gorunsun diye dummy kayitlar
+  -- Ama help modalinda g d/c/q aciklamalari gorunsun diye dummy kayıtlar
   shortcuts.register("global", "g d", function() router.navigate("#/"); return true end, "Panoya git")
   shortcuts.register("global", "g c", function() router.navigate("#/connections"); return true end, "Bağlantılara git")
   shortcuts.register("global", "g q", function() router.navigate("#/query"); return true end, "Sorguya git")
@@ -96,8 +96,8 @@ function keyboard.setup(app)
       "Nesne ara (Ctrl+F)")
   end
 
-  -- connections sayfasi: n yeni baglanti
-  -- shortcuts.register("connections", "n", function() app.dispatch({type="CONNECTION_EDIT_OPENED", id="new"}); return true end, "Yeni baglanti")
+  -- connections sayfasi: n yeni bağlantı
+  -- shortcuts.register("connections", "n", function() app.dispatch({type="CONNECTION_EDIT_OPENED", id="new"}); return true end, "Yeni bağlantı")
 
   js.keyboard.onKey(function(key, typing, ctrl, alt, tag, shift)
     -- Ctrl+Shift+<tuş>: CodeMirror kendi keymap'iyle tüketir (defaultPrevented); textarea yedeği ve odak

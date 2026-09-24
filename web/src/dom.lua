@@ -255,7 +255,7 @@ end
 -- Eski ve yeni ağacı karşılaştırıp minimum DOM işlemi uygular; yeni ağacı döner.
 -- Odak/imleç korunur: aynı düğüm yeniden kullanılır (yalnızca prop'lar güncellenir).
 patch_vnode = function(old, new)
-  -- ayni vnode nesnesi tekrar verildiyse (ör. modal.show'a bir kez kurulan icerik) DOM zaten gunceldir;
+  -- ayni vnode nesnesi tekrar verildiyse (ör. modal.show'a bir kez kurulan icerik) DOM zaten günceldir;
   -- devam etmek dinleyici kutusunu (_box) kendisinden silerdi
   if old == new then return new end
   if old.text ~= nil and new.text ~= nil then

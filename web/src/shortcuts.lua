@@ -92,7 +92,7 @@ local function set_pending_g()
   pending_timer = js.timer.after(1000, function() pending_g = false; pending_timer = nil end)
 end
 
--- app.dispatch'e kisa erisim (dongusel require dikkat)
+-- app.dispatch'e kisa erişim (dongusel require dikkat)
 local function get_app()
   local ok, app = pcall(require, "app")
   if ok then return app end
@@ -166,7 +166,7 @@ local function handle_ctrl(key, typing, tag)
     end
     return false
   end
-  -- diger Ctrl+<tus> kayitlari (Ctrl+R yenile, Ctrl+E editor, Ctrl+F arama ...)
+  -- diger Ctrl+<tus> kayıtlari (Ctrl+R yenile, Ctrl+E editor, Ctrl+F arama ...)
   local combo = "Ctrl+" .. (#key == 1 and key:upper() or key)
   for _, sc in ipairs(active_scopes()) do
     local entry = registry[sc] and registry[sc][combo]
@@ -183,7 +183,7 @@ end
 -- Signature: key, typing, ctrl, alt, tag
 function shortcuts.handle_key(key, typing, ctrl, alt, tag)
   tag = tag or ""
-  -- Alt: yalnizca kayitli Alt+<tus> kisayollari (Ctrl+N/W tarayiciya ayrilmis → Alt+N/W)
+  -- Alt: yalnizca kayıtli Alt+<tus> kisayollari (Ctrl+N/W tarayiciya ayrilmis → Alt+N/W)
   if alt then
     local combo = "Alt+" .. (#key == 1 and key:upper() or key)
     for _, sc in ipairs(active_scopes()) do

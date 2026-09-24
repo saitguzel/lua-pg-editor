@@ -91,18 +91,24 @@ local function is_array(t)
   return t[1] ~= nil
 end
 
--- 2xx yanıtı: liste zarfı → { items, meta }; tekil → data, nil, meta
+-- 2xx yanıtı: liste zarfı → { items, meta }; tekil → data, nil, meta; bare (health) → body
 local function handle_success(res)
   if not res.text or #res.text == 0 then return true, nil end
   local ok, body = pcall(json.decode, res.text)
   if not ok or type(body) ~= "table" then
+    -- metrics gibi düz metin ise ham metni döndür
+    if res.text and res.ctype and res.ctype:find("text/plain") then return res.text, nil end
     return nil, client_error("INVALID_RESPONSE", "Beklenmeyen sunucu yanıtı", res.status)
   end
   local data = body.data
   if body.meta ~= nil and is_array(data) then
     return { items = data, meta = body.meta }, nil, body.meta
   end
-  if data == nil then return true, nil, body.meta end
+  if data == nil then
+    -- bare endpoint (health) → gövdeyi doğrudan döndür
+    if body.status ~= nil or body.db ~= nil or body.version ~= nil then return body, nil, body.meta end
+    return true, nil, body.meta
+  end
   return data, nil, body.meta
 end
 
@@ -146,11 +152,11 @@ local function is_public_auth(path)
   return path:find("^/auth/") ~= nil and not path:find("^/auth/me") and not path:find("^/auth/logout")
 end
 
--- Kullanicinin cozebilecegi hatalar (parola sor, SSH anahtarini onayla): cfg.on_recoverable(err) true
+-- Kullanıcınin cozebilecegi hatalar (parola sor, SSH anahtarini onayla): cfg.on_recoverable(err) true
 -- donerse istek bir kez tekrarlanir
 local RECOVERABLE = { PASSWORD_REQUIRED = true, SSH_HOST_KEY_UNKNOWN = true }
 
--- tek-ucus: ayni baglanti+hata icin tek dialog; es zamanli istekler sonucunu bekler (refresh_once gibi)
+-- tek-ucus: ayni bağlantı+hata icin tek dialog; es zamanli istekler sonucunu bekler (refresh_once gibi)
 local recovering = {} -- key -> { waiters = { co, ... } }
 local function recover_once(err)
   local key = err.code .. ":" .. tostring(err.details and err.details.connection_id)

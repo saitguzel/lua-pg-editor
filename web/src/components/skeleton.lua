@@ -19,7 +19,7 @@ function skeleton.cards(n)
       dom.div({ class = "skeleton h-8 w-12", ["aria-hidden"] = "true" }))
   end
   return dom.ul({ role = "list", ["aria-busy"] = "true",
-    class = "skeleton-delayed grid grid-cols-2 lg:grid-cols-5 gap-3" },
+    class = "skeleton-delayed grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" },
     dom.li({ class = "sr-only" }, announce()), items)
 end
 

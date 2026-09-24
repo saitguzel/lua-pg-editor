@@ -50,11 +50,11 @@ function _M.render(state, dispatch)
   local errors = (state.ui.form_errors or {}).login or {}
   local busy = state.ui.busy.login or false
 
-  return dom.main({ class = "min-h-screen flex flex-col items-center justify-center p-4", id = "main",
+  return dom.main({ class = "min-h-screen flex flex-col items-center justify-center p-3 sm:p-4", id = "main",
     tabindex = "-1" },
     dom.form({
       class = "w-full max-w-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] " ..
-        "shadow-[var(--shadow)] p-6",
+        "shadow-[var(--shadow)] p-4 sm:p-6",
       ["aria-labelledby"] = "login-title",
       onsubmit = function()
         local email = dom.value("email") or ""
@@ -62,34 +62,34 @@ function _M.render(state, dispatch)
         app.spawn(function() _M.submit(email, password, dispatch) end)
       end,
     },
-      dom.h1({ id = "login-title", class = "text-xl font-bold mb-4 flex items-center gap-2" },
-        icons.get("log-in", "w-5 h-5 text-[var(--primary)]"), "Giriş yap"),
-      dom.div({ role = "alert", ["aria-live"] = "assertive", class = errors._ and "field-error mb-2 flex items-center gap-1.5" or "" },
-        errors._ and icons.get("alert-circle", "w-4 h-4") or nil, errors._ and errors._[1] or nil),
+      dom.h1({ id = "login-title", class = "text-lg sm:text-xl font-bold mb-4 flex items-center gap-2" },
+        icons.get("log-in", "w-5 h-5 text-[var(--primary)] shrink-0"), "Giriş yap"),
+      dom.div({ role = "alert", ["aria-live"] = "assertive", class = errors._ and "field-error mb-2 flex items-center gap-1.5 text-sm" or "" },
+        errors._ and icons.get("alert-circle", "w-4 h-4 shrink-0") or nil, errors._ and errors._[1] or nil),
       dom.div({ class = "mb-3" },
         dom.label({ ["for"] = "email", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
           icons.get("mail", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "E-posta"),
         dom.input({
           id = "email", name = "email", type = "email", autocomplete = "username", required = "required",
-          class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
+          class = "w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm",
           ["aria-describedby"] = errors.email and "email-err" or nil,
           ["aria-invalid"] = errors.email and "true" or nil,
         }),
-        errors.email and dom.p({ id = "email-err", class = "field-error" }, errors.email[1]) or nil),
+        errors.email and dom.p({ id = "email-err", class = "field-error text-sm" }, errors.email[1]) or nil),
       dom.div({ class = "mb-4" },
         dom.label({ ["for"] = "password", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
           icons.get("key", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "Parola"),
         dom.input({
           id = "password", name = "password", type = "password", autocomplete = "current-password",
           required = "required", minlength = "8",
-          class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
+          class = "w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm",
           ["aria-describedby"] = errors.password and "password-err" or nil,
           ["aria-invalid"] = errors.password and "true" or nil,
         }),
-        errors.password and dom.p({ id = "password-err", class = "field-error" }, errors.password[1]) or nil),
+        errors.password and dom.p({ id = "password-err", class = "field-error text-sm" }, errors.password[1]) or nil),
       dom.button({
         type = "submit", id = "login-submit",
-        class = "w-full py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50",
+        class = "w-full py-2.5 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50 text-sm sm:text-base",
         ["aria-busy"] = tostring(busy),
         disabled = busy and "disabled" or nil,
       }, icons.get(busy and "clock" or "log-in", "w-4 h-4"), busy and "Gönderiliyor…" or "Giriş yap"),

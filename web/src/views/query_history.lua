@@ -1,4 +1,4 @@
--- F18: Sorgu gecmisi (codd) — baglanti + veritabani basina, zaman damgasi, SQL onizleme, Uygula (aktif
+-- F18: Sorgu gecmisi (codd) — bağlantı + veritabani basina, zaman damgasi, SQL onizleme, Uygula (aktif
 -- sekmenin metnini degistirir), Yeni sekmede ac, Kopyala, Temizle. Ayni SQL tekrar calisinca en uste tasinir.
 local dom = require("dom")
 local app = require("app")
@@ -43,7 +43,7 @@ end
 local function search_input(id, on_change)
   return dom.input({ id = id, type = "search", value = search, placeholder = "SQL içinde ara…",
     ["aria-label"] = "Geçmişte ara", autocomplete = "off",
-    class = "px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg)] text-sm w-56",
+    class = "px-2 py-1.5 border border-[var(--border)] rounded bg-[var(--bg)] text-sm w-full sm:w-56",
     oninput = function(e) search = e.value or ""; debounced(on_change) end })
 end
 
@@ -79,7 +79,7 @@ local function when(iso)
   return tostring(js.format_date and js.format_date(iso) or iso)
 end
 
--- codd Apply: aktif sekmenin metnini degistirir, sekmenin baglanti/DB'sini kayda esitler
+-- codd Apply: aktif sekmenin metnini degistirir, sekmenin bağlantı/DB'sini kayda esitler
 function _M.apply(entry)
   local qe = require("views.query_editor")
   local st = app.get_state()
@@ -121,26 +121,26 @@ end
 local function entry_row(state, entry)
   local sql = entry.sql or ""
   return dom.li({ key = tostring(entry.id),
-    class = "flex items-start gap-3 p-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] hover:shadow-sm transition-shadow" },
+    class = "flex flex-col sm:flex-row sm:items-start gap-3 p-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] hover:shadow-sm transition-shadow" },
     dom.div({ class = "flex-1 min-w-0 space-y-1" },
       dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-24 overflow-hidden" },
         _M.highlight(sql, search)),
-      dom.div({ class = "flex flex-wrap gap-3 text-[11px] text-[var(--fg-muted)] items-center" },
+      dom.div({ class = "flex flex-wrap gap-2 sm:gap-3 text-[11px] text-[var(--fg-muted)] items-center" },
         dom.span({ class = "inline-flex items-center gap-1" }, icons.get("clock", "w-3 h-3"), when(entry.executed_at)),
         dom.span({ class = "inline-flex items-center gap-1" }, icons.get("plug", "w-3 h-3"), conn_name(state, entry.connection_id) .. " / " .. tostring(entry.database or "")),
         entry.row_count and dom.span({}, tostring(entry.row_count) .. " satır") or nil,
         entry.duration_ms and dom.span({}, tostring(entry.duration_ms) .. " ms") or nil,
         entry.truncated and dom.span({ class = "text-[var(--warning)] inline-flex items-center gap-0.5" }, icons.get("alert-circle", "w-3 h-3"), "limit") or nil)),
-    dom.div({ class = "flex flex-col gap-1 shrink-0" },
-      icons.button({ icon = "play", label = "Çalıştır", variant = "primary", class = "btn-sm",
+    dom.div({ class = "flex flex-row sm:flex-col gap-1.5 shrink-0 flex-wrap sm:flex-nowrap" },
+      icons.button({ icon = "play", label = "Çalıştır", variant = "primary", class = "btn-sm flex-1 sm:flex-initial justify-center",
         title = "Aktif sekmeye uygula ve çalıştır", onclick = function() _M.run(entry) end }),
-      icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm", title = "Aktif sekmeye uygula",
+      icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm flex-1 sm:flex-initial justify-center", title = "Aktif sekmeye uygula",
         onclick = function() _M.apply(entry) end }),
-      icons.button({ icon = "external-link", label = "Yeni sekmede aç", variant = "secondary", class = "btn-sm",
+      icons.button({ icon = "external-link", label = "Yeni sekmede aç", variant = "secondary", class = "btn-sm hidden sm:inline-flex",
         onclick = function()
           require("views.query_editor").open_in_new_tab(sql, { connection_id = entry.connection_id, database = entry.database })
         end }),
-      icons.button({ icon = "copy", label = "Kopyala", variant = "ghost", class = "btn-sm",
+      icons.button({ icon = "copy", label = "Kopyala", variant = "ghost", class = "btn-sm flex-1 sm:flex-initial justify-center",
         onclick = function() js.clipboard(sql); app.toast("success", "Kopyalandı") end })))
 end
 
@@ -154,22 +154,24 @@ function _M.render(state)
   for _, c in ipairs(state.connections.items or {}) do
     opts[#opts + 1] = dom.option({ value = c.id, selected = f.connection_id == c.id and "selected" or nil }, c.name)
   end
-  local toolbar = dom.div({ class = "flex flex-wrap items-center gap-2" },
-    dom.label({ class = "text-sm flex items-center gap-1" }, "Bağlantı",
-      dom.select({ class = sel, onchange = function(e)
-        router.replace_query({ connection_id = e.value, database = "", page = "" })
-      end }, dom.list(opts))),
-    dom.label({ class = "text-sm flex items-center gap-1" }, "Veritabanı",
-      dom.input({ type = "text", class = sel .. " w-36", value = f.database or "", placeholder = "tümü",
-        onchange = function(e) router.replace_query({ database = e.value or "", page = "" }) end })),
-    search_input("history-search", function()
-      local f2 = filters()
-      if f2.page > 1 then router.replace_query({ page = "" }) else load(f2) end
-    end),
-    dom.button({ type = "button", class = "btn btn-secondary btn-sm",
-      onclick = function() app.spawn(load, filters()) end }, require("icons").get("refresh"), dom.span({}, "Yenile")),
+  local toolbar = dom.div({ class = "grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3" },
+    dom.div({ class = "flex flex-col sm:flex-row gap-2 flex-1" },
+      dom.label({ class = "text-sm flex flex-col sm:flex-row sm:items-center gap-1 flex-1" }, "Bağlantı",
+        dom.select({ class = sel .. " w-full sm:w-auto flex-1", onchange = function(e)
+          router.replace_query({ connection_id = e.value, database = "", page = "" })
+        end }, dom.list(opts))),
+      dom.label({ class = "text-sm flex flex-col sm:flex-row sm:items-center gap-1" }, "Veritabanı",
+        dom.input({ type = "text", class = sel .. " w-full sm:w-36", value = f.database or "", placeholder = "tümü",
+          onchange = function(e) router.replace_query({ database = e.value or "", page = "" }) end }))),
+    dom.div({ class = "flex flex-col sm:flex-row gap-2 flex-1 sm:flex-initial" },
+      search_input("history-search", function()
+        local f2 = filters()
+        if f2.page > 1 then router.replace_query({ page = "" }) else load(f2) end
+      end),
+      dom.button({ type = "button", class = "btn btn-secondary btn-sm w-full sm:w-auto justify-center",
+        onclick = function() app.spawn(load, filters()) end }, require("icons").get("refresh"), dom.span({}, "Yenile"))),
     f.connection_id and #items > 0 and icons.button({ icon = "trash", label = "Temizle", variant = "danger",
-      class = "btn-sm ml-auto", title = "Geçmişi temizle",
+      class = "btn-sm w-full sm:w-auto sm:ml-auto justify-center", title = "Geçmişi temizle",
       onclick = function() _M.clear(f.connection_id, f.database, function() load(filters()) end) end }) or nil)
 
   local body
@@ -194,12 +196,12 @@ function _M.render(state)
       onclick = function() router.replace_query({ page = tostring(f.page + 1) }) end })) or nil
 
   return dom.div({ class = "space-y-3" },
-    dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
-      icons.get("history", "w-6 h-6 text-[var(--primary)]"), "Sorgu Geçmişi"),
+    dom.h1({ class = "text-lg sm:text-xl font-bold flex items-center gap-2", tabindex = "-1" },
+      icons.get("history", "w-5 h-5 sm:w-6 sm:h-6 text-[var(--primary)] shrink-0"), "Sorgu Geçmişi"),
     toolbar, body, pager)
 end
 
--- Editor ici gecmis (codd popover): aktif sekmenin baglanti/DB'si icin son 20 kayit (aranabilir);
+-- Editor ici gecmis (codd popover): aktif sekmenin bağlantı/DB'si icin son 20 kayıt (aranabilir);
 -- Uygula metni degistirir
 local pop = { items = {}, tab = nil }
 

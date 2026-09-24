@@ -1,6 +1,6 @@
 -- F19: Yapi inceleme ve duzenleme (codd Structure) — kolonlar, indexler, constraint'ler, FK'ler, trigger'lar,
 -- istatistik. Her oge icin sag tik: adi kopyala / yeniden adlandir / sil (bagimlilik hatasinda CASCADE onerisi).
--- Constraint'e bagli index'ler constraint uzerinden yonetilir (salt okunur).
+-- Constraint'e bagli index'ler constraint üzerinden yonetilir (salt okunur).
 local dom = require("dom")
 local app = require("app")
 local api = require("fetch")
@@ -266,19 +266,107 @@ end
 
 local function render_stats(d)
   local s = d.stats or {}
+  local chart = require("components.chart")
+  local total = tonumber(d.size_bytes) or 0
+  local tbl = tonumber(d.table_bytes) or 0
+  local idx = tonumber(d.index_bytes) or 0
+  local live = tonumber(s.n_live_tup) or 0
+  local dead = tonumber(s.n_dead_tup) or 0
+  local seq = tonumber(s.seq_scan) or 0
+  local iscan = tonumber(s.idx_scan) or 0
+  local dead_ratio = live > 0 and (dead / math.max(live,1) * 100) or 0
+  local hit_ratio = (seq + iscan) > 0 and (iscan / (seq + iscan) * 100) or 0
+
+  local size_donut = (total > 0) and chart.donut({
+    segments = {
+      { label = "Tablo", value = tbl, color = "#6366f1" },
+      { label = "Index", value = idx, color = "#06b6d4" },
+    }, title = "Boyut dağılımı"
+  }) or dom.div({ class = "p-4 text-sm text-[var(--fg-muted)] text-center" }, "Boyut verisi yok")
+
+  local tuple_donut = (live + dead > 0) and chart.donut({
+    segments = {
+      { label = "Canlı", value = live, color = "#22c55e" },
+      { label = "Ölü", value = dead, color = "#ef4444" },
+    }, title = "Satır durumu"
+  }) or dom.div({ class = "p-4 text-sm text-[var(--fg-muted)] text-center" }, "Satır verisi yok")
+
+  local scan_chart = (seq + iscan > 0) and chart.bar({
+    labels = { "Seq", "Idx" },
+    values = { seq, iscan },
+    colors = { "#f59e0b", "#10b981" },
+    title = "Tarama sayısı",
+    height = 140
+  }) or dom.div({ class = "p-4 text-sm text-[var(--fg-muted)] text-center" }, "Tarama verisi yok")
+
   local items = {
     { "Toplam boyut", human_bytes(d.size_bytes) }, { "Tablo", human_bytes(d.table_bytes) },
-    { "Indexler", human_bytes(d.index_bytes) }, { "Canlı satır (tahmini)", s.n_live_tup },
-    { "Ölü satır", s.n_dead_tup }, { "Sıralı tarama", s.seq_scan }, { "Index tarama", s.idx_scan },
-    { "Son VACUUM", s.last_vacuum or s.last_autovacuum }, { "Son ANALYZE", s.last_analyze or s.last_autoanalyze },
+    { "Indexler", human_bytes(d.index_bytes) }, { "Canlı satır (tahmini)", live > 0 and tostring(live) or "—" },
+    { "Ölü satır", dead > 0 and tostring(dead) .. string.format(" (%.1f%%)", dead_ratio) or "0" },
+    { "Sıralı tarama", tostring(seq) }, { "Index tarama", tostring(iscan) },
+    { "Son VACUUM", s.last_vacuum or s.last_autovacuum or "—" }, { "Son ANALYZE", s.last_analyze or s.last_autoanalyze or "—" },
   }
   local cells = {}
   for i, it in ipairs(items) do
-    cells[i] = dom.div({ class = "p-3 border border-[var(--border)] rounded bg-[var(--bg-elev)]" },
-      dom.dt({ class = "text-xs text-[var(--fg-muted)]" }, it[1]),
-      dom.dd({ class = "text-base font-semibold" }, it[2] ~= nil and tostring(it[2]) or "—"))
+    local is_alert = (it[1] == "Ölü satır" and dead_ratio > 20) or (it[1] == "Sıralı tarama" and seq > iscan * 2 and seq > 100)
+    cells[i] = dom.div({ class = "p-3 border rounded bg-[var(--bg-elev)] " .. (is_alert and "border-amber-300 bg-amber-50/50" or "border-[var(--border)]") },
+      dom.dt({ class = "text-xs text-[var(--fg-muted)] flex items-center gap-1" },
+        it[1] == "Ölü satır" and dead_ratio > 20 and icons.get("alert-triangle", "w-3 h-3 text-amber-500") or nil, it[1]),
+      dom.dd({ class = "text-sm sm:text-base font-semibold mt-1" }, it[2] ~= nil and tostring(it[2]) or "—"))
   end
-  return dom.dl({ class = "grid grid-cols-2 md:grid-cols-3 gap-3" }, dom.list(cells))
+
+  return dom.div({ class = "space-y-4" },
+    -- özet kartlar
+    dom.div({ class = "grid grid-cols-1 sm:grid-cols-3 gap-3" },
+      dom.div({ class = "stat-card stat-card-purple p-4 rounded-[var(--radius)] flex items-center gap-3" },
+        dom.div({ class = "stat-icon p-2.5 rounded-xl shrink-0" }, icons.get("hard-drive", "w-5 h-5")),
+        dom.div({},
+          dom.div({ class = "text-xs opacity-90" }, "Toplam Boyut"),
+          dom.div({ class = "text-lg font-bold" }, human_bytes(d.size_bytes)),
+          dom.div({ class = "text-xs opacity-80" }, string.format("Tablo %s · Index %s", human_bytes(tbl), human_bytes(idx))))),
+      dom.div({ class = "stat-card stat-card-emerald p-4 rounded-[var(--radius)] flex items-center gap-3" },
+        dom.div({ class = "stat-icon p-2.5 rounded-xl shrink-0" }, icons.get("table", "w-5 h-5")),
+        dom.div({},
+          dom.div({ class = "text-xs opacity-90" }, "Satır Durumu"),
+          dom.div({ class = "text-lg font-bold" }, tostring(live) .. " canlı"),
+          dom.div({ class = "text-xs opacity-80" }, tostring(dead) .. " ölü" .. (dead_ratio > 0 and string.format(" · %.1f%% bloat", dead_ratio) or "")))),
+      dom.div({ class = "stat-card stat-card-blue p-4 rounded-[var(--radius)] flex items-center gap-3" },
+        dom.div({ class = "stat-icon p-2.5 rounded-xl shrink-0" }, icons.get("activity", "w-5 h-5")),
+        dom.div({},
+          dom.div({ class = "text-xs opacity-90" }, "Tarama Verimi"),
+          dom.div({ class = "text-lg font-bold" }, string.format("%.0f%%", hit_ratio)),
+          dom.div({ class = "text-xs opacity-80" }, string.format("%d idx / %d seq", iscan, seq))))
+    ),
+    -- grafikler
+    dom.div({ class = "grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4" },
+      dom.div({ class = "chart-card" },
+        dom.h3({ class = "font-semibold mb-3 flex items-center gap-2 text-sm" }, icons.get("hard-drive", "w-4 h-4 text-violet-500"), "Boyut Dağılımı"),
+        size_donut,
+        dom.div({ class = "mt-3 pt-3 border-t border-[var(--border)] space-y-1 text-xs" },
+          dom.div({ class = "flex justify-between" }, dom.span({ class = "text-[var(--fg-muted)]" }, "Tablo"), dom.span({ class = "font-medium" }, human_bytes(tbl))),
+          dom.div({ class = "flex justify-between" }, dom.span({ class = "text-[var(--fg-muted)]" }, "Index"), dom.span({ class = "font-medium" }, human_bytes(idx))),
+          dom.div({ class = "flex justify-between font-semibold pt-1 border-t" }, dom.span({}, "Toplam"), dom.span({}, human_bytes(total))))),
+      dom.div({ class = "chart-card" },
+        dom.h3({ class = "font-semibold mb-3 flex items-center gap-2 text-sm" }, icons.get("table", "w-4 h-4 text-emerald-500"), "Satır Durumu"),
+        tuple_donut,
+        dead_ratio > 20 and dom.div({ class = "mt-3 p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-1.5" },
+          icons.get("alert-triangle", "w-4 h-4"), string.format("Bloat yüksek (%.1f%%) — VACUUM önerilir", dead_ratio)) or
+          dom.div({ class = "mt-3 p-2 rounded bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 text-center" }, "Bloat düşük — sağlıklı")),
+      dom.div({ class = "chart-card" },
+        dom.h3({ class = "font-semibold mb-3 flex items-center gap-2 text-sm" }, icons.get("zap", "w-4 h-4 text-amber-500"), "Tarama Karşılaştırması"),
+        scan_chart,
+        dom.div({ class = "mt-3 space-y-2" },
+          dom.div({},
+            dom.div({ class = "flex justify-between text-xs mb-1" }, dom.span({ class = "text-[var(--fg-muted)]" }, "Index hit oranı"), dom.span({ class = "font-medium" }, string.format("%.1f%%", hit_ratio))),
+            dom.div({ class = "progress-vibrant" }, dom.div({ class = "progress-vibrant-fill success", style = "width:" .. math.min(hit_ratio,100) .. "%" }))),
+          iscan < seq and dom.div({ class = "p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800 flex gap-1.5" },
+            icons.get("alert-circle", "w-4 h-4 shrink-0"), "Sıralı tarama yüksek — index eklemeyi değerlendirin") or nil))
+    ),
+    -- detay grid
+    dom.div({ class = "chart-card" },
+      dom.h3({ class = "font-semibold mb-3 flex items-center gap-2 text-sm" }, icons.get("info", "w-4 h-4 text-[var(--primary)]"), "Detaylar"),
+      dom.dl({ class = "grid grid-cols-2 md:grid-cols-3 gap-3" }, dom.list(cells)))
+  )
 end
 
 function _M.render(state, dispatch)
@@ -289,23 +377,25 @@ function _M.render(state, dispatch)
   local ctx = { connection_id = c.connection_id, database = c.database, schema = c.schema, name = c.name, kind = kind }
   local relation = kind == nil or tree.RELATION_KINDS[kind] == true
 
-  local header = dom.div({ class = "flex items-center justify-between gap-2 flex-wrap" },
-    dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
-      icons.get(tree.ICON[kind] or "table", "w-5 h-5 text-[var(--primary)]"),
-      dom.span({ class = "font-normal text-[var(--fg-muted)]" }, c.schema .. "."), c.name,
-      kind and kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" },
+  local header = dom.div({ class = "flex flex-col sm:flex-row sm:items-center justify-between gap-3" },
+    dom.h1({ class = "text-lg sm:text-xl font-bold flex flex-wrap items-center gap-2", tabindex = "-1" },
+      icons.get(tree.ICON[kind] or "table", "w-5 h-5 text-[var(--primary)] shrink-0"),
+      dom.span({ class = "flex items-center gap-1 min-w-0" },
+        dom.span({ class = "font-normal text-[var(--fg-muted)] text-sm sm:text-base" }, c.schema .. "."),
+        dom.span({ class = "truncate" }, c.name)),
+      kind and kind ~= "table" and dom.span({ class = "text-xs px-2 py-0.5 border rounded align-middle shrink-0" },
         tree.KIND_LABEL[kind] or kind) or nil),
-    dom.div({ class = "flex gap-2 flex-wrap items-center" },
+    dom.div({ class = "flex gap-1.5 sm:gap-2 flex-wrap items-center" },
       relation and dom.a({ href = "#/browse/" .. router.urlencode(c.schema) .. "/" .. router.urlencode(c.name)
         .. "?connection_id=" .. router.urlencode(c.connection_id) .. (c.database and ("&database=" .. router.urlencode(c.database)) or ""),
-        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
-        icons.get("table", "w-4 h-4"), "İçerik") or nil,
-      not relation and app.can("script.generate") and icons.button({ icon = "code", label = "CREATE script",
+        class = "inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
+        icons.get("table", "w-4 h-4"), dom.span({ class = "hidden sm:inline" }, "İçerik")) or nil,
+      not relation and app.can("script.generate") and icons.button({ icon = "code", label = "CREATE script", class = "btn-sm",
         variant = "secondary", title = "CREATE script'ini yeni sekmede aç",
         onclick = function() object_actions.script(ctx, "create") end }) or nil,
-      icons.button({ icon = "refresh", label = "Yenile", variant = "secondary",
+      icons.button({ icon = "refresh", label = "Yenile", variant = "secondary", class = "btn-sm",
         title = "Yapıyı yenile", onclick = function() app.spawn(load, c) end }),
-      d.kind and icons.button({ icon = "settings", label = "Eylemler", variant = "secondary",
+      d.kind and icons.button({ icon = "settings", label = "Eylemler", variant = "secondary", class = "btn-sm",
         title = "Nesne eylemleri", ["aria-haspopup"] = "menu",
         onclick = function(e) require("components.context_menu").open(e, object_actions.menu_items(ctx)) end }) or nil))
 
@@ -330,13 +420,13 @@ function _M.render(state, dispatch)
         triggers = "zap", rules = "code", policies = "key", stats = "info" })[t.key]
       tab_buttons[i] = dom.button({ type = "button", ["aria-pressed"] = t.key == active_tab and "true" or "false",
         class = t.key == active_tab
-          and "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)]"
-          or "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-[var(--border)] hover:bg-[var(--bg-elev)]",
+          and "inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)] whitespace-nowrap shrink-0"
+          or "inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded border border-[var(--border)] hover:bg-[var(--bg-elev)] whitespace-nowrap shrink-0",
         onclick = function()
           active_tab = t.key
           router.replace_query({ tab = t.key }, { silent = true })
           app.schedule_render()
-        end }, tab_icon and icons.get(tab_icon, "w-3.5 h-3.5") or nil, t.label .. (count and (" (" .. count .. ")") or ""))
+        end }, tab_icon and icons.get(tab_icon, "w-3.5 h-3.5 shrink-0") or nil, t.label .. (count and (" (" .. count .. ")") or ""))
     end
     local content
     if current.key == "stats" then
@@ -346,7 +436,8 @@ function _M.render(state, dispatch)
       content = section(c, current, headers, rows)
     end
     body = dom.div({ class = "space-y-3" },
-      dom.div({ class = "flex gap-1.5 flex-wrap", role = "group", ["aria-label"] = "Yapı bölümleri" }, dom.list(tab_buttons)),
+      dom.div({ class = "flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin", role = "group", ["aria-label"] = "Yapı bölümleri" },
+        dom.div({ class = "flex gap-1.5 flex-nowrap" }, dom.list(tab_buttons))),
       content)
   end
 

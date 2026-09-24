@@ -1,4 +1,4 @@
--- F20: Kullanici yonetimi — liste, filtre, form, sil (LAST_ADMIN).
+-- F20: Kullanıcı yönetimi — liste, filtre, form, sil (LAST_ADMIN).
 local dom = require("dom")
 local app = require("app")
 local api = require("fetch")
@@ -8,7 +8,7 @@ local protocol = require("pg_shared.protocol")
 local icons = require("icons")
 
 local _M = {}
-_M.title = "Kullanicilar"
+_M.title = "Kullanıcılar"
 _M.layout = true
 
 local debounce_id = nil
@@ -120,11 +120,11 @@ local function user_form(state)
             app.dispatch({ type = "FORM_ERRORS_SET", form = "user", errors = err.details or {} })
           elseif err.code == "LAST_ADMIN" then
             app.dispatch({ type = "FORM_ERRORS_SET", form = "user",
-              errors = { _ = { "Sistemdeki son aktif admin silinemez veya dusurulemez" } } })
-            app.toast("error", "Son admin islemi engellendi")
+              errors = { _ = { "Sistemdeki son aktif yönetici silinemez veya düşürülemez" } } })
+            app.toast("error", "Son yönetici işlemi engellendi")
           elseif err.code == "SELF_ACTION_FORBIDDEN" then
             app.dispatch({ type = "FORM_ERRORS_SET", form = "user",
-              errors = { _ = { "Kendi hesabiniz uzerinde bu islem yapilamaz" } } })
+              errors = { _ = { "Kendi hesabınız üzerinde bu işlem yapılamaz" } } })
           else
             app.dispatch({ type = "FORM_ERRORS_SET", form = "user",
               errors = { _ = { protocol.message(err.code) } } })
@@ -134,7 +134,7 @@ local function user_form(state)
         app.dispatch({ type = "USER_SAVED" })
         app.dispatch({ type = "USER_EDIT_CLOSED" })
         app.dispatch({ type = "FORM_ERRORS_SET", form = "user", errors = false })
-        app.toast("success", is_edit and "Kullanici guncellendi" or "Kullanici olusturuldu")
+        app.toast("success", is_edit and "Kullanıcı güncellendi" or "Kullanıcı oluşturuldu")
         if is_edit and user.id == me.id then app.refresh_permissions() end
         reload()
       end)
@@ -161,7 +161,7 @@ local function user_form(state)
       })),
     dom.div({},
       dom.label({ ["for"] = "user-password", class = "block text-sm font-medium mb-1" },
-        is_edit and "Yeni parola (bos = degismez)" or "Parola"),
+        is_edit and "Yeni parola (boş = değişmez)" or "Parola"),
       dom.div({ class = "flex gap-2" },
         dom.input({
           id = "user-password", type = "text", minlength = "8", autocomplete = "new-password",
@@ -176,10 +176,10 @@ local function user_form(state)
             local pw = js.random_password(16)
             dom.set_value("user-password", pw)
             js.clipboard(pw)
-            app.toast("info", "Parola olusturuldu ve panoya kopyalandi")
+            app.toast("info", "Parola oluşturuldu ve panoya kopyalandı")
           end })),
       errors.password and dom.p({ id = "user-password-err", class = "field-error text-xs text-[var(--danger)] mt-1" }, errors.password[1]) or nil),
-    dom.div({ class = "grid grid-cols-2 gap-3" },
+    dom.div({ class = "grid grid-cols-1 sm:grid-cols-2 gap-3" },
       dom.div({},
         dom.label({ ["for"] = "user-role", class = "block text-sm font-medium mb-1" }, "Rol"),
         dom.select({
@@ -215,7 +215,7 @@ local function delete_user(u)
       return
     end
     app.dispatch({ type = "USER_REMOVED", id = u.id })
-    app.toast("success", "Kullanici silindi")
+    app.toast("success", "Kullanıcı silindi")
   end)
 end
 
@@ -249,9 +249,9 @@ function _M.render(state, dispatch)
           dom.span({ class = "inline-flex items-center gap-1" },
             icons.get(u.is_active and "check" or "x", u.is_active and "w-3 h-3 text-[var(--success)]" or "w-3 h-3 text-[var(--fg-muted)]"),
             u.is_active and "Aktif" or "Pasif")),
-        dom.td({ class = "py-2 pr-3", ["data-label"] = "Son giris" }, fmt(u.last_login_at)),
-        dom.td({ class = "py-2 pr-3", ["data-label"] = "Olusturulma" }, fmt(u.created_at)),
-        dom.td({ class = "py-2 pr-3 text-right", ["data-label"] = "Islemler" },
+        dom.td({ class = "py-2 pr-3", ["data-label"] = "Son giriş" }, fmt(u.last_login_at)),
+        dom.td({ class = "py-2 pr-3", ["data-label"] = "Oluşturulma" }, fmt(u.created_at)),
+        dom.td({ class = "py-2 pr-3 text-right", ["data-label"] = "İşlemler" },
           can_manage and dom.button({
             type = "button", class = "btn btn-ghost btn-icon btn-sm mr-1",
             ["aria-label"] = (u.email or "") .. " duzenle", title = "Düzenle",
@@ -270,43 +270,43 @@ function _M.render(state, dispatch)
 
   local table_or_empty
   if st.status ~= "loading" and #st.items == 0 then
-    table_or_empty = layout.empty_state({ icon_svg = "users", title = "Kullanicı bulunamadı",
+    table_or_empty = layout.empty_state({ icon_svg = "users", title = "Kullanıcı bulunamadı",
       text = (f.q or f.search or f.role or f.is_active) and "Bu filtrelerle eşleşen kullanıcı yok" or "",
       action_label = (f.q or f.search or f.role or f.is_active) and "Filtreleri temizle" or nil, action_icon = "eraser",
       on_action = function() router.navigate("#/users") end })
   else
-    table_or_empty = dom.div({ class = "overflow-x-auto" },
-      dom.table({ class = "w-full text-sm responsive-table" },
-        dom.caption({ class = "sr-only" }, "Kullanici listesi, " .. (meta.total or 0) .. " kayit"),
+    table_or_empty = dom.div({ class = "overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0" },
+      dom.table({ class = "w-full text-sm responsive-table min-w-[640px] sm:min-w-0" },
+        dom.caption({ class = "sr-only" }, "Kullanıcı listesi, " .. (meta.total or 0) .. " kayıt"),
         dom.thead({},
           dom.tr({ class = "text-left text-[var(--fg-muted)]" },
             layout.sort_th("E-posta", "email", f.sort, on_sort),
             layout.sort_th("Ad", "full_name", f.sort, on_sort),
             layout.sort_th("Rol", "role", f.sort, on_sort),
             dom.th({ scope = "col", class = "py-2 pr-3" }, "Durum"),
-            layout.sort_th("Son giris", "last_login_at", f.sort, on_sort),
-            layout.sort_th("Olusturulma", "created_at", f.sort, on_sort),
-            dom.th({ scope = "col", class = "py-2 pr-3 text-right" }, "Islemler"))),
+            layout.sort_th("Son giriş", "last_login_at", f.sort, on_sort),
+            layout.sort_th("Oluşturulma", "created_at", f.sort, on_sort),
+            dom.th({ scope = "col", class = "py-2 pr-3 text-right" }, "İşlemler"))),
         body))
   end
 
   local modal = nil
   if st.editing then
     modal = require("components.modal").dialog("user-edit",
-      st.editing == "new" and "Yeni kullanici" or "Kullanici duzenle", user_form(state), close_form)
+      st.editing == "new" and "Yeni kullanıcı" or "Kullanıcı düzenle", user_form(state), close_form)
   end
 
-  local select_cls = "px-3 py-2 min-h-11 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm text-[var(--fg)]"
+  local select_cls = "w-full px-3 py-2 min-h-11 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm text-[var(--fg)]"
   return dom.section({ ["aria-labelledby"] = "users-title" },
-    dom.header({ class = "flex items-center justify-between gap-2 mb-4" },
-      dom.h1({ id = "users-title", class = "text-2xl font-bold", tabindex = "-1" },
+    dom.header({ class = "flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4" },
+      dom.h1({ id = "users-title", class = "text-xl sm:text-2xl font-bold", tabindex = "-1" },
         "Kullanıcılar" .. ((tonumber(meta.total) or 0) > 0 and (" (" .. meta.total .. ")") or "")),
-      can_manage and icons.button({ icon = "user-plus", label = "+ Kullanıcı ekle", variant = "accent",
+      can_manage and icons.button({ icon = "user-plus", label = "+ Kullanıcı ekle", variant = "accent", class = "w-full sm:w-auto justify-center",
         title = "Yeni kullanıcı ekle (n)", ["aria-keyshortcuts"] = "n",
         onclick = function() app.dispatch({ type = "USER_EDIT_OPENED", id = "new" }) end }) or nil),
-    dom.form({ role = "search", ["aria-label"] = "Kullanici filtreleri",
-      class = "flex flex-wrap items-end gap-2 mb-4" },
-      dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)] flex-1 min-w-40" }, "Ara",
+    dom.form({ role = "search", ["aria-label"] = "Kullanıcı filtreleri",
+      class = "grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 sm:gap-3 mb-4 items-end" },
+      dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)]" }, "Ara",
         dom.input({
           type = "search", id = "user-search", placeholder = "E-posta veya ad… (/)", ["aria-keyshortcuts"] = "/",
           class = select_cls, value = f.q or f.search or "",
@@ -320,14 +320,14 @@ function _M.render(state, dispatch)
         dom.label({ ["for"] = "user-filter-1", class = "text-xs text-[var(--fg-muted)]" }, "Rol"),
         dom.select({ id = "user-filter-1", value = f.role or "", class = select_cls,
           onchange = function(e) set_filters({ role = e.value or "" }) end },
-          dom.option({ value = "" }, "Tum roller"),
+          dom.option({ value = "" }, "Tüm roller"),
           dom.option({ value = "admin", selected = f.role == "admin" and "selected" or nil }, "admin"),
           dom.option({ value = "editor", selected = f.role == "editor" and "selected" or nil }, "editor"))),
       dom.div({ class = "flex flex-col" },
         dom.label({ ["for"] = "user-filter-2", class = "text-xs text-[var(--fg-muted)]" }, "Durum"),
         dom.select({ id = "user-filter-2", value = f.is_active or "", class = select_cls,
           onchange = function(e) set_filters({ is_active = e.value or "" }) end },
-          dom.option({ value = "" }, "Tumu"),
+          dom.option({ value = "" }, "Tümü"),
           dom.option({ value = "true", selected = f.is_active == "true" and "selected" or nil }, "Aktif"),
           dom.option({ value = "false", selected = f.is_active == "false" and "selected" or nil }, "Pasif")))),
     table_or_empty,

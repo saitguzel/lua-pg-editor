@@ -1,5 +1,5 @@
 -- F19: Tablo tarayici (codd) — sayfali/filtreli/siralanabilir satirlar, hucre duzenleme (NULL dahil),
--- ekle/cogalt/sil, sag tik menusu, CSV, Delete tusu. Satir islemleri yalnizca PK'li tablolarda
+-- ekle/çoğalt/sil, sag tik menusu, CSV, Delete tusu. Satir işlemleri yalnizca PK'li tablolarda
 -- (sunucu meta.editable + _rid verir); view ve PK'siz tablolar salt okunur.
 local dom = require("dom")
 local app = require("app")
@@ -17,7 +17,7 @@ _M.title = "Tablo Tarayıcı"
 _M.layout = true
 
 local selected = {} -- rid -> true (toplu secim)
-local focused = nil -- satir indeksi (tek secim: cogalt/sil/Delete)
+local focused = nil -- satir indeksi (tek secim: çoğalt/sil/Delete)
 local form = nil -- { mode = "insert"|"duplicate", values, state = { modes, errors } }
 
 local GROUP_CLASS = {
@@ -103,7 +103,7 @@ end
 
 local function can_edit(meta) return meta.editable == true and app.can("table.edit") end
 
--- --- satir islemleri ---------------------------------------------------------------
+-- --- satir işlemleri ---------------------------------------------------------------
 local function delete_rows(rids)
   if #rids == 0 then return end
   app.spawn(function()
@@ -270,8 +270,8 @@ local function render_grid(tb, cur)
         .. (row._rid and selected[row._rid] and "bg-[color-mix(in_srgb,var(--primary)_8%,transparent)]" or "hover:bg-[var(--bg-elev)]") },
       dom.list(cells))
   end
-  return dom.div({ class = "overflow-auto border border-[var(--border)] rounded max-h-[60vh]" },
-    dom.table({ class = "w-full text-sm border-collapse" },
+  return dom.div({ class = "overflow-auto border border-[var(--border)] rounded max-h-[50vh] sm:max-h-[60vh] -mx-3 sm:mx-0" },
+    dom.table({ class = "w-full text-sm border-collapse min-w-[640px]" },
       dom.thead({}, dom.tr({}, dom.list(head))),
       dom.tbody({ ["aria-busy"] = tb.status == "loading" and "true" or nil,
         onclick = function(e)
@@ -297,23 +297,25 @@ function _M.render(state, dispatch)
   local focus_row = focused and tb.rows[focused]
   local nfilters = #cur.filters + (cur.custom_where ~= "" and 1 or 0)
 
-  local header = dom.div({ class = "flex items-center justify-between gap-2 flex-wrap" },
-    dom.h1({ class = "text-xl font-bold", tabindex = "-1" },
-      dom.span({ class = "font-normal text-[var(--fg-muted)]" }, cur.schema .. "."), cur.table,
-      meta.kind and meta.kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" }, meta.kind) or nil,
-      tb.status == "ready" and not meta.editable and dom.span({ class = "ml-2 text-xs text-[var(--fg-muted)] align-middle" },
+  local header = dom.div({ class = "flex flex-col sm:flex-row sm:items-center justify-between gap-3" },
+    dom.h1({ class = "text-lg sm:text-xl font-bold flex flex-wrap items-center gap-2", tabindex = "-1" },
+      dom.span({ class = "flex items-center gap-1 min-w-0" },
+        dom.span({ class = "font-normal text-[var(--fg-muted)] text-sm sm:text-base" }, cur.schema .. "."),
+        dom.span({ class = "truncate" }, cur.table)),
+      meta.kind and meta.kind ~= "table" and dom.span({ class = "text-xs px-2 py-0.5 border rounded align-middle shrink-0" }, meta.kind) or nil,
+      tb.status == "ready" and not meta.editable and dom.span({ class = "text-xs text-[var(--fg-muted)] align-middle hidden sm:inline" },
         "salt okunur" .. (meta.kind == "table" and " (birincil anahtar yok)" or "")) or nil),
-    dom.div({ class = "flex gap-2 flex-wrap items-center" },
-      editable and require("icons").button({ icon = "plus", label = "+ Satır ekle", variant = "accent",
+    dom.div({ class = "flex gap-1.5 sm:gap-2 flex-wrap items-center" },
+      editable and require("icons").button({ icon = "plus", label = "+ Satır ekle", variant = "accent", class = "btn-sm",
         title = "Yeni satır ekle", onclick = function() open_form("insert", nil) end }) or nil,
-      editable and require("icons").button({ icon = "copy", label = "Çoğalt", variant = "secondary",
+      editable and require("icons").button({ icon = "copy", label = "Çoğalt", variant = "secondary", class = "btn-sm",
         disabled = not (focus_row and focus_row._rid), title = "Odaklı satırı çoğalt",
         onclick = function() open_form("duplicate", focus_row) end }) or nil,
-      editable and require("icons").button({ icon = "trash",
+      editable and require("icons").button({ icon = "trash", class = "btn-sm",
         label = #sel_rids > 0 and ("Sil (" .. #sel_rids .. ")") or "Sil", variant = "danger",
         disabled = #sel_rids == 0 and not (focus_row and focus_row._rid), title = "Seçili satırları sil",
         onclick = function() delete_rows(#sel_rids > 0 and sel_rids or { focus_row._rid }) end }) or nil,
-      require("icons").button({ icon = "filter", label = nfilters > 0 and ("Filtreler (" .. nfilters .. ")") or "Filtreler",
+      require("icons").button({ icon = "filter", label = nfilters > 0 and ("Filtreler (" .. nfilters .. ")") or "Filtreler", class = "btn-sm",
         variant = nfilters > 0 and "accent" or "secondary",
         title = nfilters > 0 and (nfilters .. " filtre aktif") or "Filtreleri aç/kapat",
         ["aria-expanded"] = filter_bar.is_open() and "true" or "false",
@@ -321,14 +323,14 @@ function _M.render(state, dispatch)
           if filter_bar.is_open() then filter_bar.close() else filter_bar.open(cur.filters, cur.custom_where) end
           app.schedule_render()
         end }),
-      app.can("export.csv") and require("icons").button({ icon = "download", label = "Dışa aktar",
+      app.can("export.csv") and require("icons").button({ icon = "download", label = "Dışa aktar", class = "btn-sm",
         title = "Dışa aktar (CSV / Excel / JSON)", onclick = export_csv }) or nil,
-      require("icons").button({ icon = "refresh", label = "Yenile", variant = "secondary",
+      require("icons").button({ icon = "refresh", label = "Yenile", variant = "secondary", class = "btn-sm",
         title = "Yenile (Ctrl+R)", onclick = reload }),
       dom.a({ href = "#/structure/" .. router.urlencode(cur.schema) .. "/" .. router.urlencode(cur.table)
           .. "?connection_id=" .. router.urlencode(cur.connection_id) .. (cur.database and ("&database=" .. router.urlencode(cur.database)) or ""),
-        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
-        require("icons").get("code", "w-4 h-4"), "Yapı")))
+        class = "inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
+        require("icons").get("code", "w-4 h-4"), dom.span({ class = "hidden sm:inline" }, "Yapı"))))
 
   local body
   if tb.status == "loading" and #tb.rows == 0 then

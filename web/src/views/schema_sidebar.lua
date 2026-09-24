@@ -59,7 +59,7 @@ local function set_open(conn, key, open)
 end
 local function quick_filter() return storage.get("sidebar.filter") or "all" end
 
--- aktif baglanti/DB: sorgu sekmesi ya da tarayici/yapi sayfasinin URL'i
+-- aktif bağlantı/DB: sorgu sekmesi ya da tarayici/yapi sayfasinin URL'i
 local function context(state)
   local r = state.route
   if r.name == "browse" or r.name == "structure" then
@@ -79,7 +79,7 @@ local function load_completion(conn, db, force)
   cache = { key = key, catalog = cache.key == key and cache.catalog or nil, status = "loading" }
   app.schedule_render()
   local data, err = api.get(conn_path(conn) .. "/completion", q_db(db))
-  if cache.key ~= key then return end -- bu arada baglanti degisti
+  if cache.key ~= key then return end -- bu arada bağlantı degisti
   if err then
     cache.status, cache.error = "error", err
   else
@@ -665,11 +665,11 @@ function _M.render(state)
   end
 
   return dom.aside({ ["aria-label"] = "Veritabanı nesneleri",
-    class = "border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] p-2 space-y-2 self-start" },
+    class = "border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] p-2 space-y-2 self-start w-full lg:w-auto" },
     header,
     dom.input({ id = "sidebar-search", type = "search", value = search, placeholder = "Nesne ara (Ctrl+F)",
       ["aria-label"] = "Nesne ara",
-      class = "w-full px-2 py-1 text-sm border border-[var(--border)] rounded bg-[var(--bg)]",
+      class = "w-full px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--bg)]",
       oninput = function(e)
         search = e.value or ""
         if search_timer then js.timer.cancel(search_timer) end
@@ -677,7 +677,7 @@ function _M.render(state)
         app.schedule_render()
       end }),
     conn and conn ~= "" and filter_chips() or nil,
-    dom.div({ class = "max-h-[70vh] overflow-auto" }, body))
+    dom.div({ class = "max-h-[40vh] sm:max-h-[50vh] lg:max-h-[70vh] overflow-auto" }, body))
 end
 
 -- test: modül durumunu sıfırlar

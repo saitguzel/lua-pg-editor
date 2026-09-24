@@ -1,6 +1,6 @@
--- F21: Komut paleti — Ctrl+K ile acilir modal: baglanti degistir, tablo ara.
--- connections.items ve mevcut objects (eger varsa) uzerinde filtreler.
--- js.dom.focusFirst("[data-command]") ile odak yonetimi.
+-- F21: Komut paleti — Ctrl+K ile acilir modal: bağlantı degistir, tablo ara.
+-- connections.items ve mevcut objects (eger varsa) üzerinde filtreler.
+-- js.dom.focusFirst("[data-command]") ile odak yönetimi.
 
 local dom = require("dom")
 local app = require("app")
@@ -34,7 +34,7 @@ local function filtered_tables(q)
     for _, t in ipairs(sch.tables or {}) do objs[#objs + 1] = { schema = sch.name, name = t.name } end
   end
   if not q or q == "" then
-    -- ilk 20'yi goster
+    -- ilk 20'yi göster
     local out = {}
     for i = 1, math.min(20, #objs) do out[i] = objs[i] end
     return out
@@ -96,7 +96,7 @@ function palette.open()
   open = true
   query = ""
   selected = 1
-  -- baglanti/tablo listesini tazelemek icin api cagrisi yapilabilir ama hizli olmasi icin mevcut state kullanilir
+  -- bağlantı/tablo listesini tazelemek icin api cagrisi yapilabilir ama hizli olmasi icin mevcut state kullanilir
   app.dispatch({ type = "COMMAND_PALETTE_OPENED" })
   app.schedule_render()
   js.timer.after(30, function() js.dom.focusFirst("[data-command]") end)
@@ -113,7 +113,7 @@ function palette.is_open() return open end
 
 local function navigate_connection(conn)
   palette.close()
-  -- query sayfasina baglanti secili git veya connections detay? basit: query'ye baglanti parametresiyle
+  -- query sayfasina bağlantı secili git veya connections detay? basit: query'ye bağlantı parametresiyle
   if conn and conn.id then
     router.navigate("#/query?connection_id=" .. router.urlencode(conn.id))
   end
@@ -137,7 +137,7 @@ local function navigate_table(obj)
 end
 
 function palette.render(state)
-  -- palette kendi kokunu #palette-root uzerinde yonetir
+  -- palette kendi kokunu #palette-root üzerinde yonetir
   palette._root = palette._root or { h = nil, tree = nil }
   if not palette._root.h then
     local h = js.dom.byId("palette-root")
@@ -153,10 +153,10 @@ function palette.render(state)
 
     local items = {}
 
-    -- baglantilar bolumu
-    items[#items + 1] = dom.div({ class = "text-xs font-semibold text-[var(--fg-muted)] px-2 py-1" }, "Baglantilar (" .. #conns .. ")")
+    -- bağlantılar bolumu
+    items[#items + 1] = dom.div({ class = "text-xs font-semibold text-[var(--fg-muted)] px-2 py-1" }, "Bağlantılar (" .. #conns .. ")")
     if #conns == 0 then
-      items[#items + 1] = dom.div({ class = "px-3 py-2 text-sm text-[var(--fg-muted)]" }, "Eslesen baglanti yok")
+      items[#items + 1] = dom.div({ class = "px-3 py-2 text-sm text-[var(--fg-muted)]" }, "Eslesen bağlantı yok")
     else
       for i, c in ipairs(conns) do
         local idx = i
@@ -167,7 +167,7 @@ function palette.render(state)
           class = (is_sel and "bg-[var(--primary)] text-[var(--primary-fg)] " or "hover:bg-[var(--bg)] ")
             .. "w-full text-left px-3 py-2 text-sm rounded flex items-center justify-between",
           onclick = function() navigate_connection(c) end,
-        }, dom.span({}, (c.name or c.host or "Baglanti") .. " — " .. (c.host or "") .. ":" .. tostring(c.port or "")),
+        }, dom.span({}, (c.name or c.host or "Bağlantı") .. " — " .. (c.host or "") .. ":" .. tostring(c.port or "")),
            dom.span({ class = "text-xs opacity-60" }, c.database or ""))
       end
     end
@@ -199,7 +199,7 @@ function palette.render(state)
       }, dom.span({}, c.label), c.hint and dom.kbd({ class = "text-xs opacity-60" }, c.hint) or nil)
     end
 
-    local content = dom.div({ class = "space-y-2 min-w-[28rem]" },
+    local content = dom.div({ class = "space-y-2 w-full sm:min-w-[28rem]" },
       dom.input({
         type = "search",
         placeholder = "Bağlantı, tablo veya komut ara…",

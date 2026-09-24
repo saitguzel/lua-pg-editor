@@ -21,7 +21,7 @@ local function type_class(t)
   return TYPE_CLASS[t] or (t:find("^array_") and TYPE_CLASS.json) or ""
 end
 
--- hucre degerini metne cevir; NULL → nil (cagiran gosterimi secer)
+-- hucre degerini metne cevir; NULL → nil (cagiran gösterimi secer)
 local function cell_text(v)
   if v == nil or v == json.null then return nil end
   if type(v) == "table" then
@@ -223,9 +223,9 @@ function result_grid.render(result, opts)
       end })) or nil
 
   return dom.div({ class = "space-y-2" },
-    dom.div({ class = "overflow-auto border border-[var(--border)] rounded-[var(--radius)] "
+    dom.div({ class = "overflow-auto border border-[var(--border)] rounded-[var(--radius)] -mx-3 sm:mx-0 "
       .. (opts.scroll_class or "max-h-[32rem]") },
-      dom.table({ class = "w-full text-sm border-collapse" },
+      dom.table({ class = "w-full text-sm border-collapse min-w-[480px]" },
         dom.thead({}, dom.tr({}, dom.list(header_cells))),
         dom.tbody({
           ondblclick = function(e) local r, c = parse_cell(e); if r then result_grid.show_cell(result, r, c) end end,
@@ -233,15 +233,17 @@ function result_grid.render(result, opts)
         }, dom.list(body_rows)))),
     #rows == 0 and dom.p({ class = "text-sm text-[var(--fg-muted)] p-2" }, "Sorgu satır döndürmedi") or nil,
     pager,
-    dom.div({ class = "flex items-center gap-3 flex-wrap text-xs text-[var(--fg-muted)]", role = "status" },
-      dom.span({}, (paged and (first .. "–" .. last .. " / ") or "")
-        .. tostring(row_count) .. (result.truncated and "+" or "") .. " satır"),
-      duration and dom.span({}, tostring(duration) .. " ms") or nil,
-      result.truncated and dom.span({ class = "px-2 py-0.5 rounded bg-[var(--warning)] text-white" },
-        "satır limitine ulaşıldı") or nil,
-      fetch_all,
-      limit_input,
-      dom.span({}, "Çift tık: değeri görüntüle · Sağ tık: kopyala")))
+    dom.div({ class = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap text-xs text-[var(--fg-muted)]", role = "status" },
+      dom.div({ class = "flex items-center gap-2 flex-wrap" },
+        dom.span({}, (paged and (first .. "–" .. last .. " / ") or "")
+          .. tostring(row_count) .. (result.truncated and "+" or "") .. " satır"),
+        duration and dom.span({}, tostring(duration) .. " ms") or nil,
+        result.truncated and dom.span({ class = "px-2 py-0.5 rounded bg-[var(--warning)] text-white shrink-0" },
+          "satır limitine ulaşıldı") or nil),
+      dom.div({ class = "flex items-center gap-2 flex-wrap" },
+        fetch_all,
+        limit_input),
+      dom.span({ class = "hidden sm:inline" }, "Çift tık: değeri görüntüle · Sağ tık: kopyala")))
 end
 
 return result_grid

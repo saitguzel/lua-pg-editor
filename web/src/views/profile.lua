@@ -20,9 +20,9 @@ function _M.enter()
 end
 
 local function card(title_id, title, ...)
-  return dom.section({ class = "bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-6 mb-6",
+  return dom.section({ class = "bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-4 sm:p-6 mb-4 sm:mb-6",
     ["aria-labelledby"] = title_id },
-    dom.h2({ id = title_id, class = "font-semibold mb-3" }, title), ...)
+    dom.h2({ id = title_id, class = "font-semibold mb-3 text-sm sm:text-base" }, title), ...)
 end
 
 function _M.render(state, dispatch)
@@ -43,10 +43,10 @@ function _M.render(state, dispatch)
   end
 
   return dom.section({ class = "max-w-2xl", ["aria-labelledby"] = "profile-title" },
-    dom.h1({ id = "profile-title", class = "text-2xl font-bold mb-4 flex items-center gap-2", tabindex = "-1" },
-      icons.get("users", "w-6 h-6 text-[var(--primary)]"), "Profil"),
+    dom.h1({ id = "profile-title", class = "text-xl sm:text-2xl font-bold mb-4 flex items-center gap-2", tabindex = "-1" },
+      icons.get("users", "w-6 h-6 text-[var(--primary)] shrink-0"), "Profil"),
     card("profile-account", "Hesap",
-      dom.dl({ class = "grid grid-cols-[10rem_1fr] gap-y-2" },
+      dom.dl({ class = "grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-y-2 text-sm" },
         dom.dt({ class = "text-[var(--fg-muted)]" }, "Ad"),
         dom.dd({}, user.full_name or "—"),
         dom.dt({ class = "text-[var(--fg-muted)]" }, "E-posta"),
@@ -59,7 +59,7 @@ function _M.render(state, dispatch)
     card("profile-keys", "Klavye kısayolları",
       dom.div({ class = "flex items-center gap-2 mb-3" },
         dom.input({
-          id = "shortcuts-enabled", type = "checkbox", class = "w-5 h-5",
+          id = "shortcuts-enabled", type = "checkbox", class = "w-5 h-5 shrink-0",
           checked = shortcuts.enabled() and "checked" or nil,
           onchange = function(e)
             shortcuts.set_enabled(e.checked == true)
@@ -67,12 +67,13 @@ function _M.render(state, dispatch)
             app.toast("info", msg, { timeout = 2000 })
           end,
         }),
-        dom.label({ ["for"] = "shortcuts-enabled" }, "Tek tuş kısayollarını kullan")),
-      dom.table({ class = "text-sm" },
+        dom.label({ ["for"] = "shortcuts-enabled", class = "text-sm" }, "Tek tuş kısayollarını kullan")),
+      dom.div({ class = "overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0" },
+        dom.table({ class = "text-sm min-w-[320px]" },
         dom.caption({ class = "sr-only" }, "Klavye kısayolları"),
         dom.thead({ class = "sr-only" }, dom.tr({},
           dom.th({ scope = "col" }, "Tuş"), dom.th({ scope = "col" }, "İşlev"))),
-        dom.tbody({}, shortcut_rows))),
+        dom.tbody({}, shortcut_rows)))),
     icons.button({ icon = "logout", label = "Çıkış yap", variant = "danger",
       title = "Oturumu kapat", onclick = function() app.logout() end }))
 end

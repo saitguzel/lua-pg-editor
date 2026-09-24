@@ -1,5 +1,5 @@
 -- F19: Filtre paneli (codd Filters popover) — kolon + operator + deger satirlari (AND), Custom SQL,
--- Filtre ekle / Temizle / Uygula. Degisiklikler taslakta tutulur; yalnizca Uygula URL'ye yazar (her tusta sorgu yok).
+-- Filtre ekle / Temizle / Uygula. Değişiklikler taslakta tutulur; yalnizca Uygula URL'ye yazar (her tusta sorgu yok).
 local dom = require("dom")
 local types = require("pg_shared.types")
 local icons = require("icons")
@@ -48,24 +48,26 @@ function filter_bar.render(opts)
     for _, o in ipairs(ops) do
       op_opts[#op_opts + 1] = dom.option({ value = o, selected = f.operator == o and "selected" or nil }, o)
     end
-    rows[i] = dom.div({ key = i, class = "flex items-center gap-1 flex-wrap" },
-      dom.select({ class = sel, ["aria-label"] = "Filtre " .. i .. " kolon",
-        onchange = function(e)
-          f.column = e.value
-          local allowed = filter_bar.allowed_ops(group_of(columns, f.column))
-          local ok = false
-          for _, o in ipairs(allowed) do if o == f.operator then ok = true end end
-          if not ok then f.operator = allowed[1] end
-          rerender()
-        end }, dom.list(col_opts)),
-      dom.select({ class = sel, ["aria-label"] = "Filtre " .. i .. " operatör",
-        onchange = function(e) f.operator = e.value; rerender() end }, dom.list(op_opts)),
-      not NO_VALUE[f.operator] and dom.input({ type = "text", value = f.value or "", placeholder = "değer",
-        ["aria-label"] = "Filtre " .. i .. " değer", class = sel .. " min-w-32",
-        oninput = function(e) f.value = e.value end }) or nil,
-      dom.button({ type = "button", ["aria-label"] = "Filtre " .. i .. " kaldır", title = "Filtreyi kaldır",
-        class = "btn btn-ghost btn-icon btn-sm",
-        onclick = function() table.remove(draft.filters, i); rerender() end }, icons.get("x", "w-3 h-3")))
+    rows[i] = dom.div({ key = i, class = "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-1 p-2 sm:p-0 border sm:border-0 border-[var(--border)] rounded sm:rounded-none bg-[var(--bg)] sm:bg-transparent" },
+      dom.div({ class = "flex gap-1 flex-1" },
+        dom.select({ class = sel .. " flex-1 min-w-0", ["aria-label"] = "Filtre " .. i .. " kolon",
+          onchange = function(e)
+            f.column = e.value
+            local allowed = filter_bar.allowed_ops(group_of(columns, f.column))
+            local ok = false
+            for _, o in ipairs(allowed) do if o == f.operator then ok = true end end
+            if not ok then f.operator = allowed[1] end
+            rerender()
+          end }, dom.list(col_opts)),
+        dom.select({ class = sel .. " flex-1 min-w-0", ["aria-label"] = "Filtre " .. i .. " operatör",
+          onchange = function(e) f.operator = e.value; rerender() end }, dom.list(op_opts))),
+      dom.div({ class = "flex gap-1 items-center" },
+        not NO_VALUE[f.operator] and dom.input({ type = "text", value = f.value or "", placeholder = "değer",
+          ["aria-label"] = "Filtre " .. i .. " değer", class = sel .. " flex-1 min-w-0",
+          oninput = function(e) f.value = e.value end }) or dom.span({ class = "flex-1 text-xs text-[var(--fg-muted)] sm:hidden" }, NO_VALUE[f.operator] and "değer gerekmez" or ""),
+        dom.button({ type = "button", ["aria-label"] = "Filtre " .. i .. " kaldır", title = "Filtreyi kaldır",
+          class = "btn btn-ghost btn-icon btn-sm shrink-0",
+          onclick = function() table.remove(draft.filters, i); rerender() end }, icons.get("x", "w-3 h-3"))))
   end
 
   local function apply()

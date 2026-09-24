@@ -30,29 +30,29 @@ function _M.render(state)
   local done = state.ui.reset_done or false
 
   if done then
-    return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
+    return dom.main({ class = "min-h-screen flex items-center justify-center p-3 sm:p-4", id = "main", tabindex = "-1" },
       dom.div({ class = "w-full max-w-sm text-center", role = "status" },
         dom.div({ class = "flex justify-center mb-2 text-[var(--success)]" }, icons.get("check", "w-8 h-8")),
-        dom.h1({ class = "text-xl font-bold mb-2" }, "Parolanız güncellendi"),
+        dom.h1({ class = "text-lg sm:text-xl font-bold mb-2" }, "Parolanız güncellendi"),
         dom.a({ href = "#/login", class = "inline-flex items-center gap-1 text-[var(--primary)] underline" },
           icons.get("log-in", "w-4 h-4"), "Giriş yap")))
   end
 
   local token = held_token or (state.route and state.route.query and state.route.query.token)
   if not token_valid(token) then
-    return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
+    return dom.main({ class = "min-h-screen flex items-center justify-center p-3 sm:p-4", id = "main", tabindex = "-1" },
       dom.div({ class = "w-full max-w-sm text-center" },
         dom.div({ class = "flex justify-center mb-2 text-[var(--danger)]" }, icons.get("alert-triangle", "w-8 h-8")),
-        dom.h1({ class = "text-xl font-bold mb-2" }, "Bağlantı geçersiz"),
-        dom.p({ class = "text-[var(--fg-muted)] mb-4" },
-          "Bu sıfırlama bağlantısı geçersiz veya eksik."),
+        dom.h1({ class = "text-lg sm:text-xl font-bold mb-2" }, "Bağlantı geçersiz"),
+        dom.p({ class = "text-sm text-[var(--fg-muted)] mb-4" },
+          "Bu sıfırlama bağlantısı geçersiz veya eksık."),
         dom.a({ href = "#/forgot-password", class = "inline-flex items-center gap-1 text-[var(--primary)] underline" },
           icons.get("mail", "w-4 h-4"), "Yeni bağlantı iste")))
   end
 
-  return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
+  return dom.main({ class = "min-h-screen flex items-center justify-center p-3 sm:p-4", id = "main", tabindex = "-1" },
     dom.form({
-      class = "w-full max-w-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-6 " ..
+      class = "w-full max-w-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-4 sm:p-6 " ..
         "shadow-[var(--shadow)]",
       ["aria-labelledby"] = "reset-title",
       onsubmit = function()
@@ -61,8 +61,8 @@ function _M.render(state)
         app.spawn(function() _M.submit(token, p1, p2) end)
       end,
     },
-      dom.h1({ id = "reset-title", class = "text-xl font-bold mb-4 flex items-center gap-2" },
-        icons.get("key", "w-5 h-5 text-[var(--primary)]"), "Yeni parola belirleyin"),
+      dom.h1({ id = "reset-title", class = "text-lg sm:text-xl font-bold mb-4 flex items-center gap-2" },
+        icons.get("key", "w-5 h-5 text-[var(--primary)] shrink-0"), "Yeni parola belirleyin"),
       dom.div({ role = "alert", class = errors._ and "field-error mb-2 flex items-center gap-1.5" or "" },
         errors._ and icons.get("alert-circle", "w-4 h-4") or nil, errors._ and errors._[1] or nil),
       dom.div({ class = "mb-3" },

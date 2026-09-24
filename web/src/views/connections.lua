@@ -103,9 +103,9 @@ local function reload()
   load_connections(_M.filters_from_query(cur and cur.query or {}))
 end
 
--- --- islemler --------------------------------------------------------------------
+-- --- işlemler --------------------------------------------------------------------
 
-local read_only_ids = {} -- F30: son testte salt okunur cikan baglantilar (id → true)
+local read_only_ids = {} -- F30: son testte salt okunur cikan bağlantılar (id → true)
 
 local function test_connection(id)
   app.dispatch({ type = "CONNECTION_TESTING", id = id })
@@ -123,7 +123,7 @@ local function test_connection(id)
   read_only_ids[id] = data and data.read_only == true or nil
   app.toast("success", "Bağlantı başarılı (" .. tostring(latency) .. " ms"
     .. (read_only_ids[id] and ", salt okunur rol" or "") .. ")")
-  -- listeyi tazele (last_test guncellendi)
+  -- listeyi tazele (last_test güncellendi)
   reload()
 end
 
@@ -170,7 +170,7 @@ local function conn_by_id(id)
   for _, c in ipairs(app.get_state().connections.items or {}) do if c.id == id then return c end end
 end
 
--- codd "Trust SSH Host Key?": sunucunun parmak izlerini goster, onaylanirsa kaydet → true
+-- codd "Trust SSH Host Key?": sunucunun parmak izlerini göster, onaylanirsa kaydet → true
 function _M.trust_host_key(id)
   local data, err = api.get("/connections/" .. id .. "/ssh/host-key")
   if err then app.toast("error", err.message or protocol.message(err.code)); return false end
@@ -282,7 +282,7 @@ local function connection_form(state)
           -- edit: partial validasyon; name/host degismediyse mevcut degeri kullan
           local payload = {}
           for k, v in pairs(input) do payload[k] = v end
-          -- eksik zorunlu alanlar icin conn degerini doldurup validate et
+          -- eksık zorunlu alanlar icin conn degerini doldurup validate et
           if not payload.name or payload.name == "" then payload.name = conn.name end
           if not payload.host or payload.host == "" then payload.host = conn.host end
           if not payload.port then payload.port = conn.port end
@@ -298,7 +298,7 @@ local function connection_form(state)
             end
             -- partial validasyon manuel: en az bir alan varsa schema strict disi
             clean, errs = validation.validate_partial(schema, partial)
-            -- partial basarili ama zorunlu alanlar eksikse yine hata gosterecek; bu durumda full hatayi goster
+            -- partial başarılı ama zorunlu alanlar eksıkse yine hata gösterecek; bu durumda full hatayi göster
             if not clean then errs = errs end
           end
         else
@@ -354,8 +354,8 @@ local function connection_form(state)
         ["aria-describedby"] = errors.name and "conn-name-err" or nil,
       }),
       err_p("name", "conn-name")),
-    dom.div({ class = "grid grid-cols-3 gap-3" },
-      dom.div({ class = "col-span-2" },
+    dom.div({ class = "grid grid-cols-1 sm:grid-cols-3 gap-3" },
+      dom.div({ class = "sm:col-span-2" },
         dom.label({ ["for"] = "conn-host", class = "block text-sm font-medium mb-1" }, "Host"),
         dom.input({ id = "conn-host", type = "text", required = "required",
           placeholder = "localhost veya /var/run/postgresql",
@@ -370,7 +370,7 @@ local function connection_form(state)
           ["aria-invalid"] = errors.port and "true" or nil,
           ["aria-describedby"] = errors.port and "conn-port-err" or nil }),
         err_p("port", "conn-port"))),
-    dom.div({ class = "grid grid-cols-2 gap-3" },
+    dom.div({ class = "grid grid-cols-1 sm:grid-cols-2 gap-3" },
       dom.div({},
         dom.label({ ["for"] = "conn-db", class = "block text-sm font-medium mb-1" }, "Veritabanı"),
         dom.input({ id = "conn-db", type = "text", required = "required",
@@ -411,7 +411,7 @@ local function connection_form(state)
             checked = ssh_open and "checked" or nil,
             onchange = function(e) ssh_open = e.checked == true; app.schedule_render() end }),
           dom.label({ ["for"] = "conn-ssh-enabled", class = "text-sm" }, "SSH aktif")),
-        dom.div({ class = "grid grid-cols-2 gap-3" },
+        dom.div({ class = "grid grid-cols-1 sm:grid-cols-2 gap-3" },
           dom.div({},
             dom.label({ ["for"] = "conn-ssh-host", class = "block text-xs mb-1" }, "SSH Host"),
             dom.input({ id = "conn-ssh-host", type = "text",
@@ -482,16 +482,16 @@ local function connection_card(conn, state)
   local can_edit = app.can("connections.create")
   return dom.div({
     key = conn.id,
-    class = "p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] space-y-2",
+    class = "p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] space-y-3 hover:shadow-sm transition-shadow",
     ["data-id"] = conn.id,
   },
-    dom.div({ class = "flex items-start justify-between gap-3" },
+    dom.div({ class = "flex flex-col sm:flex-row sm:items-start justify-between gap-3" },
       dom.div({ class = "min-w-0 flex-1" },
-        dom.h3({ class = "font-semibold truncate" }, conn.name or conn.host or "Bağlantı"),
-        dom.p({ class = "text-sm text-[var(--fg-muted)] truncate" },
+        dom.h3({ class = "font-semibold truncate text-sm sm:text-base" }, conn.name or conn.host or "Bağlantı"),
+        dom.p({ class = "text-xs sm:text-sm text-[var(--fg-muted)] truncate mt-0.5" },
           (conn.username or "") .. "@" .. (conn.host or "") .. ":" .. tostring(conn.port or "")
           .. " – Varsayılan veritabanı: " .. (conn.database or ""))),
-      dom.div({ class = "flex items-center gap-2 shrink-0" },
+      dom.div({ class = "flex flex-wrap items-center gap-1.5 shrink-0" },
         has_pw and badge("parola", "muted") or badge(conn.save_password and "parola yok" or "parola sorulur", "muted"),
         conn.ssh_enabled and badge(conn.ssh_host_trusted and "SSH" or "SSH: onay bekliyor", "muted") or nil,
         conn.ssl_mode and conn.ssl_mode ~= "disable" and badge("SSL " .. conn.ssl_mode, "muted") or nil,
@@ -500,19 +500,22 @@ local function connection_card(conn, state)
           last_ok and badge(tostring(last_lat or "?") .. " ms", "success") or badge("hatali", "muted")
         ) or nil)),
     dom.div({ class = "flex gap-2 flex-wrap" },
-      can_edit and icons.button({ icon = "edit", label = "Düzenle", variant = "secondary",
+      can_edit and icons.button({ icon = "edit", label = "Düzenle", variant = "secondary", class = "btn-sm sm:btn",
         title = "Bağlantıyı düzenle", onclick = function() open_edit(conn) end }) or nil,
       can_edit and icons.button({ icon = testing and "clock" or "zap", label = testing and "Test ediliyor..." or "Test et",
-        variant = "secondary", disabled = testing and true or nil, title = "Bağlantıyı test et",
+        variant = "secondary", class = "btn-sm sm:btn", disabled = testing and true or nil, title = "Bağlantıyı test et",
         onclick = function() app.spawn(test_connection, conn.id) end }) or nil,
-      can_edit and icons.button({ icon = "trash", label = "Sil", variant = "danger",
+      can_edit and icons.button({ icon = "trash", label = "Sil", variant = "danger", class = "btn-sm sm:btn",
         title = "Bağlantıyı sil", onclick = function() delete_connection(conn) end }) or nil,
       can_edit and conn.ssh_enabled and not conn.ssh_host_trusted and icons.button({
-        icon = "shield", label = "SSH onayla", variant = "secondary",
+        icon = "shield", label = "SSH onayla", variant = "secondary", class = "btn-sm sm:btn",
         title = "SSH anahtarını onayla", onclick = function() app.spawn(_M.trust_host_key, conn.id) end }) or nil,
       dom.a({ href = "#/query?connection_id=" .. router.urlencode(conn.id),
-        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)] hover:border-[var(--primary)] transition-colors" },
-        icons.get("terminal", "w-4 h-4"), "Sorgu")))
+        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)] hover:border-[var(--primary)] transition-colors btn-sm sm:btn" },
+        icons.get("terminal", "w-4 h-4"), "Sorgu"),
+      dom.a({ href = "#/stats?connection_id=" .. router.urlencode(conn.id),
+        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)] hover:border-[var(--primary)] transition-colors btn-sm sm:btn" },
+        icons.get("activity", "w-4 h-4"), "İstatistik")))
 end
 
 function _M.render(state, dispatch)
@@ -523,25 +526,26 @@ function _M.render(state, dispatch)
 
   local search_form = dom.form({
     role = "search", ["aria-label"] = "Bağlantı ara",
-    class = "flex gap-2 mb-4",
+    class = "flex flex-col sm:flex-row gap-2 mb-4",
     onsubmit = function() return false end,
   },
-    dom.input({
-      type = "search", id = "conn-search", placeholder = "Ara (isim/host/db)…",
-      ["aria-label"] = "Bağlantı ara",
-      class = "flex-1 px-3 py-2 min-h-11 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm",
-      value = search_val,
-      oninput = function(e)
-        if debounce_id then js.timer.cancel(debounce_id) end
-        local v = e.value or ""
-        -- sayfadan ayrildiysa gecikmeli arama URL'yi geri cekmesin
-        debounce_id = js.timer.after(300, function()
-          if app.get_state().route.name == "connections" then set_filters({ search = v }) end
-        end)
-      end,
-    }),
+    dom.div({ class = "flex gap-2 flex-1" },
+      dom.input({
+        type = "search", id = "conn-search", placeholder = "Ara (isim/host/db)…",
+        ["aria-label"] = "Bağlantı ara",
+        class = "flex-1 px-3 py-2 min-h-11 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm",
+        value = search_val,
+        oninput = function(e)
+          if debounce_id then js.timer.cancel(debounce_id) end
+          local v = e.value or ""
+          -- sayfadan ayrildiysa gecikmeli arama URL'yi geri cekmesin
+          debounce_id = js.timer.after(300, function()
+            if app.get_state().route.name == "connections" then set_filters({ search = v }) end
+          end)
+        end,
+      })),
     app.can("connections.create") and icons.button({ icon = "plus", label = "+ Yeni bağlantı",
-      variant = "accent", title = "Yeni bağlantı ekle", onclick = open_new }) or nil)
+      variant = "accent", class = "w-full sm:w-auto justify-center", title = "Yeni bağlantı ekle", onclick = open_new }) or nil)
 
   local body, error_body
   if st.status == "loading" and #st.items == 0 then
@@ -570,7 +574,7 @@ function _M.render(state, dispatch)
     for _, conn in ipairs(st.items) do
       cards[#cards + 1] = connection_card(conn, state)
     end
-    body = dom.div({ class = "grid gap-3 md:grid-cols-2" }, dom.list(cards))
+    body = dom.div({ class = "grid gap-3 grid-cols-1 md:grid-cols-2" }, dom.list(cards))
   end
 
   local modal = nil
@@ -582,8 +586,8 @@ function _M.render(state, dispatch)
   end
 
   return dom.section({ ["aria-labelledby"] = "connections-title" },
-    dom.header({ class = "flex items-center justify-between gap-2 mb-4" },
-      dom.h1({ id = "connections-title", class = "text-2xl font-bold", tabindex = "-1" },
+    dom.header({ class = "flex flex-wrap items-center justify-between gap-2 mb-4" },
+      dom.h1({ id = "connections-title", class = "text-xl sm:text-2xl font-bold", tabindex = "-1" },
         "Bağlantılar" .. ((tonumber(meta.total) or 0) > 0 and (" (" .. meta.total .. ")") or ""))),
     error_body or search_form,
     not error_body and body or nil,

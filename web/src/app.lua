@@ -678,7 +678,7 @@ function app.start(opts)
   js.media.onChange("(prefers-color-scheme: dark)", function()
     if state.ui.theme == "system" then js.dom.setRootAttr("data-theme", effective_theme("system")) end
   end)
-  -- codd Compact Mode: yogun veri gorunumu (Ayarlar'dan)
+  -- codd Compact Mode: yogun veri görünümu (Ayarlar'dan)
   js.dom.setRootAttr("data-density", storage.get_raw("density") == "compact" and "compact" or "comfortable")
   -- ana menü: masaüstünde son tercih (rail = yalnızca ikonlar)
   if storage.get_raw("sidebar") == "rail" then app.dispatch({ type = "SIDEBAR_SET", sidebar_open = false }) end
@@ -686,7 +686,7 @@ function app.start(opts)
   -- 2. api yapılandırması
   api.configure({
     base = opts.apiBase or "/api/v1",
-    -- PASSWORD_REQUIRED / SSH_HOST_KEY_UNKNOWN: kullaniciya sor, cozulduyse istek tekrarlanir
+    -- PASSWORD_REQUIRED / SSH_HOST_KEY_UNKNOWN: kullanıcıya sor, cozulduyse istek tekrarlanir
     on_recoverable = function(err)
       return require("views.connections").recover(err)
     end,

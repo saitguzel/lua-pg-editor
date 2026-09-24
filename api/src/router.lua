@@ -96,6 +96,7 @@ _M.ROUTES = {
   { method = "GET", path = "/connections/:id/ssh/host-key", handler = "handlers.connections#ssh_host_key", auth = true, page = "connections.create", name = "connections_ssh_host_key" },
   { method = "POST", path = "/connections/:id/ssh/host-key", handler = "handlers.connections#trust_ssh_host_key", auth = true, page = "connections.create", name = "connections_ssh_trust" },
   { method = "GET", path = "/connections/:id/databases", handler = "handlers.connections#list_databases", auth = true, page = "connections.list", name = "connections_databases" },
+  { method = "GET", path = "/connections/:id/stats", handler = "handlers.db_stats#stats", auth = true, page = "dashboard", name = "connections_stats" },
   -- schema & structure (F7)
   { method = "GET", path = "/connections/:id/schemas", handler = "handlers.schema#list_schemas", auth = true, page = "schema.browser", name = "schema_schemas" },
   { method = "GET", path = "/connections/:id/schemas/:schema/objects", handler = "handlers.schema#list_objects", auth = true, page = "schema.browser", name = "schema_objects" },

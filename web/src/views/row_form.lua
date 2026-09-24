@@ -1,4 +1,4 @@
--- F19: Satir formlari (codd). 1) Ekle/Cogalt: kolon basina Deger / NULL / Varsayilan secimi; identity ve
+-- F19: Satir formlari (codd). 1) Ekle/Çoğalt: kolon basina Deger / NULL / Varsayilan secimi; identity ve
 -- generated kolonlar atlanir. 2) Hucre editoru: bool/enum icin secim, diger tipler cok satirli metin;
 -- Kaydet / NULL yap (yalniz nullable) / Iptal. Degerler metin gonderilir, Postgres kolon tipine cevirir.
 local dom = require("dom")
@@ -41,7 +41,7 @@ local function read_value(col, id)
   return v
 end
 
--- --- 1) Ekle / Cogalt formu ------------------------------------------------------
+-- --- 1) Ekle / Çoğalt formu ------------------------------------------------------
 -- state: { modes = { kolon = "value"|"null"|"default" }, errors = { kolon = {msg} } } (cagiran tutar)
 -- opts: { columns, values (on-dolum), state, on_submit(values), on_cancel }
 function row_form.render(opts)

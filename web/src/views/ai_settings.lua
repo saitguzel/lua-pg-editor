@@ -156,12 +156,12 @@ local function render_models()
   local excluded_n = #(data.excluded or {})
   return dom.div({ class = "space-y-3" },
     dom.div({ class = "flex flex-wrap items-center gap-2" },
-      icons.button({ icon = "refresh", label = "Modelleri yenile", disabled = busy.refresh or nil,
+      icons.button({ icon = "refresh", label = "Modelleri yenile", class = "btn-sm", disabled = busy.refresh or nil,
         title = "Sağlayıcıdan güncel model listesini al",
         onclick = function() action("refresh", function() return api.post("/admin/ai/models/refresh", {}) end) end }),
-      icons.button({ icon = "zap", label = "Görünenleri test et", disabled = running or visible_n == 0 or nil,
+      icons.button({ icon = "zap", label = "Görünenleri test et", class = "btn-sm", disabled = running or visible_n == 0 or nil,
         onclick = function() action("testall", start_test_all({ only_visible = true })) end }),
-      icons.button({ icon = "trash", label = "Tümünü test et, çalışmayanları kaldır", variant = "danger",
+      icons.button({ icon = "trash", label = "Tümünü test et, çalışmayanları kaldır", variant = "danger", class = "btn-sm",
         disabled = running or #models == 0 or nil,
         onclick = function()
           app.spawn(function()
@@ -175,7 +175,7 @@ local function render_models()
           end)
         end }),
       excluded_n > 0 and icons.button({ icon = "refresh", label = "Hariç tutulanları geri getir (" .. excluded_n .. ")",
-        variant = "ghost", disabled = busy.restore or nil,
+        variant = "ghost", class = "btn-sm", disabled = busy.restore or nil,
         onclick = function()
           action("restore", function()
             local _, err = api.put("/admin/ai/settings", { excluded = {} })
@@ -184,29 +184,30 @@ local function render_models()
           end)
         end }) or nil),
     progress,
-    dom.div({ class = "flex flex-wrap items-center gap-3 text-sm text-[var(--fg-muted)]" },
+    dom.div({ class = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm text-[var(--fg-muted)]" },
       dom.span({}, #models .. " model · " .. ok_n .. " çalışıyor · " .. visible_n .. " sorgu ekranında"),
-      dom.input({ type = "search", class = INPUT .. " max-w-64 ml-auto", value = filter, placeholder = "Model ara…",
+      dom.input({ type = "search", class = INPUT .. " w-full sm:max-w-64 sm:ml-auto", value = filter, placeholder = "Model ara…",
         ["aria-label"] = "Model ara", oninput = function(e) filter = e.value or ""; app.schedule_render() end })),
     #models == 0 and dom.p({ class = "text-sm text-[var(--fg-muted)]" },
       data.has_key and "Liste boş — \"Modelleri yenile\" ile sağlayıcıdan alın." or "Önce API anahtarını kaydedin.")
       or nil,
-    #models > 0 and dom.div({ class = "max-h-[28rem] overflow-auto border border-[var(--border)] rounded-[var(--radius)]" },
-      dom.table({ class = "w-full text-sm" },
-        dom.thead({}, dom.tr({ class = "text-left text-xs text-[var(--fg-muted)]" },
-          dom.th({ class = "py-2 pr-2 text-center", scope = "col" }, "Göster"),
-          dom.th({ class = "py-2 pr-2", scope = "col" }, "Model"),
-          dom.th({ class = "py-2 pr-2", scope = "col" }, "Durum"),
-          dom.th({ class = "py-2", scope = "col" }, dom.span({ class = "sr-only" }, "Test")))),
-        dom.tbody({}, dom.list(rows)))) or nil)
+    #models > 0 and dom.div({ class = "max-h-[28rem] overflow-auto border border-[var(--border)] rounded-[var(--radius)] -mx-3 sm:mx-0" },
+      dom.div({ class = "min-w-[520px] px-3 sm:px-0" },
+        dom.table({ class = "w-full text-sm" },
+          dom.thead({}, dom.tr({ class = "text-left text-xs text-[var(--fg-muted)]" },
+            dom.th({ class = "py-2 pr-2 text-center", scope = "col" }, "Göster"),
+            dom.th({ class = "py-2 pr-2", scope = "col" }, "Model"),
+            dom.th({ class = "py-2 pr-2", scope = "col" }, "Durum"),
+            dom.th({ class = "py-2", scope = "col" }, dom.span({ class = "sr-only" }, "Test")))),
+          dom.tbody({}, dom.list(rows))))) or nil)
 end
 
 function _M.render()
   if not app.can("settings") then return nil end
-  local section = "space-y-4 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]"
+  local section = "space-y-4 p-3 sm:p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]"
   local head = dom.div({ class = "flex items-center gap-2" },
-    dom.span({ class = "text-[var(--ai-a)]" }, icons.get("sparkles", "w-5 h-5")),
-    dom.h2({ id = "ai-settings-title", class = "font-semibold" }, "Yapay Zekâ ile SQL"))
+    dom.span({ class = "text-[var(--ai-a)] shrink-0" }, icons.get("sparkles", "w-5 h-5")),
+    dom.h2({ id = "ai-settings-title", class = "font-semibold text-sm sm:text-base" }, "Yapay Zekâ ile SQL"))
   if not data then
     return dom.section({ class = section, ["aria-busy"] = "true" }, head, require("components.skeleton").lines(3))
   end

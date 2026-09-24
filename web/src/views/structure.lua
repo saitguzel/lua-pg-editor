@@ -7,6 +7,7 @@ local api = require("fetch")
 local router = require("router")
 local protocol = require("pg_shared.protocol")
 local object_actions = require("views.object_actions")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Yapı"
@@ -219,42 +220,48 @@ function _M.render(state, dispatch)
   local s = state.structure
   local d = s.data or {}
   local ctx = { connection_id = c.connection_id, database = c.database, schema = c.schema, name = c.name, kind = d.kind }
-  local BTN = "px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)]"
 
   local header = dom.div({ class = "flex items-center justify-between gap-2 flex-wrap" },
-    dom.h1({ class = "text-xl font-bold", tabindex = "-1" },
+    dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
+      icons.get("table", "w-5 h-5 text-[var(--primary)]"),
       dom.span({ class = "font-normal text-[var(--fg-muted)]" }, c.schema .. "."), c.name,
       d.kind and d.kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" }, d.kind) or nil),
-    dom.div({ class = "flex gap-2 flex-wrap" },
-      dom.a({ class = BTN, href = "#/browse/" .. router.urlencode(c.schema) .. "/" .. router.urlencode(c.name)
-        .. "?connection_id=" .. router.urlencode(c.connection_id) .. (c.database and ("&database=" .. router.urlencode(c.database)) or "") },
-        "İçerik"),
-      dom.button({ type = "button", class = BTN, onclick = function() app.spawn(load, c) end }, "Yenile"),
-      d.kind and dom.button({ type = "button", class = BTN, ["aria-haspopup"] = "menu",
-        onclick = function(e) require("components.context_menu").open(e, object_actions.menu_items(ctx)) end },
-        "Eylemler ▾") or nil))
+    dom.div({ class = "flex gap-2 flex-wrap items-center" },
+      dom.a({ href = "#/browse/" .. router.urlencode(c.schema) .. "/" .. router.urlencode(c.name)
+        .. "?connection_id=" .. router.urlencode(c.connection_id) .. (c.database and ("&database=" .. router.urlencode(c.database)) or ""),
+        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
+        icons.get("table", "w-4 h-4"), "İçerik"),
+      icons.button({ icon = "refresh", label = "Yenile", variant = "secondary",
+        title = "Yapıyı yenile", onclick = function() app.spawn(load, c) end }),
+      d.kind and icons.button({ icon = "settings", label = "Eylemler", variant = "secondary",
+        title = "Nesne eylemleri", ["aria-haspopup"] = "menu",
+        onclick = function(e) require("components.context_menu").open(e, object_actions.menu_items(ctx)) end }) or nil))
 
   local body
   if s.status == "loading" and not s.data then
     body = require("components.skeleton").lines(6)
   elseif s.status == "error" then
-    body = dom.div({ role = "alert", class = "p-6 text-center border border-[var(--danger)] rounded" },
+    body = dom.div({ role = "alert", class = "p-6 text-center border border-[var(--danger)] rounded space-y-3" },
+      dom.div({ class = "flex justify-center text-[var(--danger)]" }, icons.get("alert-triangle", "w-8 h-8")),
       dom.p({ class = "mb-3" }, s.error and s.error.code == "OBJECT_NOT_FOUND" and (c.schema .. "." .. c.name .. " bulunamadı")
         or tostring(s.error and s.error.message or "Yapı yüklenemedi")),
-      dom.button({ type = "button", class = BTN, onclick = function() app.spawn(load, c) end }, "Tekrar dene"))
+      icons.button({ icon = "refresh", label = "Tekrar dene", variant = "secondary",
+        onclick = function() app.spawn(load, c) end }))
   else
     local tab_buttons, current = {}, TABS[1]
     for i, t in ipairs(TABS) do
       if t.key == active_tab then current = t end
       local count = t.key ~= "stats" and #(d[t.key] or {}) or nil
+      local tab_icon = ({ columns = "table", indexes = "list", constraints = "shield", foreign_keys = "link", triggers = "zap", stats = "info" })[t.key]
       tab_buttons[i] = dom.button({ type = "button", ["aria-pressed"] = t.key == active_tab and "true" or "false",
-        class = t.key == active_tab and "px-3 py-1.5 text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)]"
-          or "px-3 py-1.5 text-sm rounded border border-[var(--border)] hover:bg-[var(--bg-elev)]",
+        class = t.key == active_tab
+          and "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)]"
+          or "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-[var(--border)] hover:bg-[var(--bg-elev)]",
         onclick = function()
           active_tab = t.key
           router.replace_query({ tab = t.key }, { silent = true })
           app.schedule_render()
-        end }, t.label .. (count and (" (" .. count .. ")") or ""))
+        end }, tab_icon and icons.get(tab_icon, "w-3.5 h-3.5") or nil, t.label .. (count and (" (" .. count .. ")") or ""))
     end
     local content
     if current.key == "stats" then

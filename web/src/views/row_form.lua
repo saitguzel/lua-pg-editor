@@ -3,6 +3,7 @@
 -- Kaydet / NULL yap (yalniz nullable) / Iptal. Degerler metin gonderilir, Postgres kolon tipine cevirir.
 local dom = require("dom")
 local json = require("json")
+local icons = require("icons")
 
 local row_form = {}
 
@@ -99,10 +100,9 @@ function row_form.render(opts)
     end },
     dom.div({ class = "space-y-3 max-h-[60vh] overflow-auto pr-1" }, dom.list(fields)),
     dom.div({ class = "flex justify-end gap-2 pt-2 border-t border-[var(--border)]" },
-      dom.button({ type = "button", class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--border)]",
-        onclick = opts.on_cancel }, "İptal"),
-      dom.button({ type = "submit", class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]" },
-        "Kaydet")))
+      icons.button({ icon = "x", label = "İptal", variant = "secondary", onclick = opts.on_cancel }),
+      dom.button({ type = "submit", class = "btn btn-accent inline-flex items-center gap-1.5" },
+        icons.get("check", "w-4 h-4"), "Kaydet")))
 end
 
 -- --- 2) Hucre editoru ------------------------------------------------------------
@@ -112,9 +112,9 @@ function row_form.edit_cell(col, value, on_save)
   local id = "cell-edit-input"
   local actions = {}
   if col.is_nullable then
-    actions[#actions + 1] = { label = "NULL yap", onclick = function() return on_save(json.null) end }
+    actions[#actions + 1] = { label = "NULL yap", icon = "eraser", class = "btn btn-ghost", onclick = function() return on_save(json.null) end }
   end
-  actions[#actions + 1] = { label = "Kaydet", class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]",
+  actions[#actions + 1] = { label = "Kaydet", icon = "check", class = "btn btn-accent", variant = "accent",
     onclick = function() return on_save(read_value(col, id)) end }
   modal.show({
     id = "cell-editor", wide = col.type_group == "json",

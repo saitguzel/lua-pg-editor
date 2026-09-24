@@ -1,6 +1,7 @@
 -- F19: Sayfalama (codd) — ilk/onceki/sonraki/son, sayfa boyutu 50/100/250/500, "{ilk}-{son} / toplam satir".
 local dom = require("dom")
 local types = require("pg_shared.types")
+local icons = require("icons")
 
 local pagination = {}
 
@@ -20,21 +21,20 @@ function pagination.render(meta, on_change)
   for _, sz in ipairs(SIZE_OPTIONS) do
     size_opts[#size_opts + 1] = dom.option({ value = tostring(sz), selected = per_page == sz and "selected" or nil }, tostring(sz))
   end
-  local btn = "px-3 py-1.5 min-h-9 border border-[var(--border)] rounded-[var(--radius)] disabled:opacity-40 text-sm"
   local function go(p) return function() on_change({ page = p, per_page = per_page }) end end
 
   return dom.nav({ ["aria-label"] = "Sayfalama", class = "flex items-center justify-between gap-2 flex-wrap py-2" },
     dom.div({ class = "flex items-center gap-1" },
-      dom.button({ type = "button", class = btn, disabled = page <= 1 and "disabled" or nil,
-        ["aria-label"] = "İlk sayfa", onclick = go(1) }, "«"),
-      dom.button({ type = "button", class = btn, disabled = page <= 1 and "disabled" or nil,
-        ["aria-label"] = "Önceki sayfa", onclick = go(page - 1) }, "‹"),
+      dom.button({ type = "button", class = "btn btn-ghost btn-icon btn-sm", disabled = page <= 1 and "disabled" or nil,
+        ["aria-label"] = "İlk sayfa", title = "İlk sayfa", onclick = go(1) }, icons.get("chevron-left", "w-4 h-4"), icons.get("chevron-left", "w-4 h-4 -ml-2")),
+      dom.button({ type = "button", class = "btn btn-ghost btn-icon btn-sm", disabled = page <= 1 and "disabled" or nil,
+        ["aria-label"] = "Önceki sayfa", title = "Önceki sayfa", onclick = go(page - 1) }, icons.get("chevron-left", "w-4 h-4")),
       dom.span({ class = "text-sm text-[var(--fg-muted)] px-2", ["aria-current"] = "page" },
         "Sayfa " .. page .. " / " .. last),
-      dom.button({ type = "button", class = btn, disabled = page >= last and "disabled" or nil,
-        ["aria-label"] = "Sonraki sayfa", onclick = go(page + 1) }, "›"),
-      dom.button({ type = "button", class = btn, disabled = page >= last and "disabled" or nil,
-        ["aria-label"] = "Son sayfa", onclick = go(last) }, "»")),
+      dom.button({ type = "button", class = "btn btn-ghost btn-icon btn-sm", disabled = page >= last and "disabled" or nil,
+        ["aria-label"] = "Sonraki sayfa", title = "Sonraki sayfa", onclick = go(page + 1) }, icons.get("chevron-right", "w-4 h-4")),
+      dom.button({ type = "button", class = "btn btn-ghost btn-icon btn-sm", disabled = page >= last and "disabled" or nil,
+        ["aria-label"] = "Son sayfa", title = "Son sayfa", onclick = go(last) }, icons.get("chevron-right", "w-4 h-4"), icons.get("chevron-right", "w-4 h-4 -ml-2"))),
     dom.div({ class = "flex items-center gap-2" },
       dom.span({ class = "text-xs text-[var(--fg-muted)]", role = "status" },
         first_row .. "-" .. last_row .. " / " .. total .. " satır"),

@@ -30,6 +30,7 @@ end
 -- on_close: Esc veya kapat düğmesi. opts.class ile boyut/konum (ör. yan çekmece) değiştirilebilir.
 function modal.dialog(id, title, content, on_close, opts)
   opts = opts or {}
+  local icons_mod = require("icons")
   return dom.dialog({
     key = id,
     id = id,
@@ -41,11 +42,12 @@ function modal.dialog(id, title, content, on_close, opts)
     oncancel = function() if on_close then on_close() end end,
   },
     dom.div({ class = "flex items-start justify-between gap-4 mb-4" },
-      dom.h2({ id = id .. "-title", class = "text-lg font-semibold" }, title),
+      dom.h2({ id = id .. "-title", class = "text-lg font-semibold flex items-center gap-2" },
+        icons_mod.get("info", "w-5 h-5 text-[var(--primary)] opacity-70"), title),
       on_close and dom.button({
-        type = "button", class = "px-2 -mt-1 text-[var(--fg-muted)] hover:text-[var(--fg)]",
+        type = "button", class = "btn btn-ghost btn-icon btn-sm",
         ["aria-label"] = "Kapat", onclick = on_close,
-      }, "✕")),
+      }, icons_mod.get("x", "w-4 h-4"))),
     content)
 end
 
@@ -122,22 +124,30 @@ function modal.prompt(opts)
   end
 end
 
--- Bilgi dialog'u (beklemez): content vnode ya da render fonksiyonu; opts.actions = { {label, onclick, class?}, ... }
+-- Bilgi dialog'u (beklemez): content vnode ya da render fonksiyonu; opts.actions = { {label, icon?, onclick, class?}, ... }
 function modal.show(opts)
   local id = opts.id or ("show-" .. tostring(#open_modals + 1))
   modal.close(id)
+  local icons_mod = require("icons")
   open_modals[#open_modals + 1] = {
     id = id, title = opts.title or "", wide = opts.wide,
     render_fn = function()
       local btns = {}
       for i, a in ipairs(opts.actions or {}) do
         -- once eylem (dialog'daki input degerlerini okuyabilsin), sonra kapat; eylem false donerse acik kalir
-        btns[i] = dom.button({ type = "button", class = a.class or BTN, onclick = function()
-          if a.onclick() ~= false and a.close ~= false then modal.close(id) end
-        end }, a.label)
+        if a.icon then
+          btns[i] = icons_mod.button({ icon = a.icon, label = a.label, variant = a.variant or "secondary",
+            class = a.class, onclick = function()
+              if a.onclick() ~= false and a.close ~= false then modal.close(id) end
+            end })
+        else
+          btns[i] = dom.button({ type = "button", class = a.class or BTN, onclick = function()
+            if a.onclick() ~= false and a.close ~= false then modal.close(id) end
+          end }, a.label)
+        end
       end
-      btns[#btns + 1] = dom.button({ type = "button", class = BTN_PRIMARY, autofocus = "autofocus",
-        onclick = function() modal.close(id) end }, "Kapat")
+      btns[#btns + 1] = dom.button({ type = "button", class = BTN_PRIMARY .. " inline-flex items-center gap-1.5", autofocus = "autofocus",
+        onclick = function() modal.close(id) end }, icons_mod.get("x", "w-4 h-4"), "Kapat")
       local body = type(opts.content) == "function" and opts.content() or opts.content
       return dom.div({ class = "space-y-4" }, body, dom.div({ class = "flex justify-end gap-2 flex-wrap" }, dom.list(btns)))
     end,

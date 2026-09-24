@@ -6,6 +6,7 @@ local router = require("router")
 local storage = require("storage")
 local validation = require("pg_shared.validation")
 local protocol = require("pg_shared.protocol")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Giriş"
@@ -61,11 +62,13 @@ function _M.render(state, dispatch)
         app.spawn(function() _M.submit(email, password, dispatch) end)
       end,
     },
-      dom.h1({ id = "login-title", class = "text-xl font-bold mb-4" }, "Giriş yap"),
-      dom.div({ role = "alert", ["aria-live"] = "assertive", class = errors._ and "field-error mb-2" or "" },
-        errors._ and errors._[1] or nil),
+      dom.h1({ id = "login-title", class = "text-xl font-bold mb-4 flex items-center gap-2" },
+        icons.get("log-in", "w-5 h-5 text-[var(--primary)]"), "Giriş yap"),
+      dom.div({ role = "alert", ["aria-live"] = "assertive", class = errors._ and "field-error mb-2 flex items-center gap-1.5" or "" },
+        errors._ and icons.get("alert-circle", "w-4 h-4") or nil, errors._ and errors._[1] or nil),
       dom.div({ class = "mb-3" },
-        dom.label({ ["for"] = "email", class = "block text-sm font-medium mb-1" }, "E-posta"),
+        dom.label({ ["for"] = "email", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
+          icons.get("mail", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "E-posta"),
         dom.input({
           id = "email", name = "email", type = "email", autocomplete = "username", required = "required",
           class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
@@ -74,7 +77,8 @@ function _M.render(state, dispatch)
         }),
         errors.email and dom.p({ id = "email-err", class = "field-error" }, errors.email[1]) or nil),
       dom.div({ class = "mb-4" },
-        dom.label({ ["for"] = "password", class = "block text-sm font-medium mb-1" }, "Parola"),
+        dom.label({ ["for"] = "password", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
+          icons.get("key", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "Parola"),
         dom.input({
           id = "password", name = "password", type = "password", autocomplete = "current-password",
           required = "required", minlength = "8",
@@ -85,12 +89,13 @@ function _M.render(state, dispatch)
         errors.password and dom.p({ id = "password-err", class = "field-error" }, errors.password[1]) or nil),
       dom.button({
         type = "submit", id = "login-submit",
-        class = "w-full py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium",
+        class = "w-full py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-50",
         ["aria-busy"] = tostring(busy),
         disabled = busy and "disabled" or nil,
-      }, busy and "Gönderiliyor…" or "Giriş yap"),
+      }, icons.get(busy and "clock" or "log-in", "w-4 h-4"), busy and "Gönderiliyor…" or "Giriş yap"),
       dom.div({ class = "mt-4 text-center text-sm" },
-        dom.a({ href = "#/forgot-password", class = "text-[var(--primary)] underline" }, "Şifremi unuttum"))),
+        dom.a({ href = "#/forgot-password", class = "inline-flex items-center gap-1 text-[var(--primary)] underline" },
+          icons.get("mail", "w-3.5 h-3.5"), "Şifremi unuttum"))),
     _M.show_demo and demo_box())
 end
 

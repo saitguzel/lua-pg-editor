@@ -4,39 +4,42 @@
 
 local dom = require("dom")
 local app = require("app")
+local icons = require("icons")
 
 local toast = {}
 
 local roots = {}  -- bölge adı → { h = handle, tree = vnode }
 
-local ICON = { error = "⚠", success = "✓", info = "ℹ", warning = "!" }
+local ICON_FOR = { error = "alert-triangle", success = "check", info = "info", warning = "alert-circle" }
 
 local function render_toast(t)
   local function pause() app.pause_toast(t.id, true) end
   local function resume() app.pause_toast(t.id, false) end
+  local icon_name = ICON_FOR[t.kind] or "info"
+  local icon_cls = t.kind == "error" and "text-[var(--danger)]" or (t.kind == "success" and "text-[var(--success)]" or "text-[var(--primary)]")
   return dom.div({
     key = t.id,
     class = "toast toast-" .. t.kind
       .. " bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] shadow-[var(--shadow)]"
-      .. " p-3 mb-2 flex items-center gap-2 min-w-64",
+      .. " p-3 mb-2 flex items-center gap-2 min-w-64 max-w-sm",
     ["data-toast-id"] = t.id,
     onmouseenter = pause, onmouseleave = resume, onfocusin = pause, onfocusout = resume,
   },
-    dom.span({ class = "icon", ["aria-hidden"] = "true" }, ICON[t.kind] or "ℹ"),
-    dom.p({ class = "flex-1 text-sm" },
+    dom.span({ class = icon_cls }, icons.get(icon_name, "w-4 h-4 shrink-0")),
+    dom.p({ class = "flex-1 text-sm break-words" },
       t.message .. (t.count and t.count > 1 and (" (×" .. t.count .. ")") or "")),
     t.action and dom.button({
-      class = "text-sm text-[var(--primary)] underline",
+      class = "text-sm text-[var(--primary)] underline inline-flex items-center gap-1",
       onclick = function()
         t.action.fn()
         app.dispatch({ type = "TOAST_DISMISSED", id = t.id })
       end,
-    }, t.action.label),
+    }, icons.get("external-link", "w-3 h-3"), t.action.label),
     dom.button({
-      class = "text-[var(--fg-muted)] hover:text-[var(--fg)] px-1",
+      class = "btn btn-ghost btn-icon btn-sm shrink-0",
       ["aria-label"] = "Bildirimi kapat",
       onclick = function() app.dispatch({ type = "TOAST_DISMISSED", id = t.id }) end,
-    }, "×"))
+    }, icons.get("x", "w-4 h-4")))
 end
 
 local function patch_region(name, items)

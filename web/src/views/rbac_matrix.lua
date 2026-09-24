@@ -5,6 +5,7 @@ local api = require("fetch")
 local router = require("router")
 local types = require("pg_shared.types")
 local protocol = require("pg_shared.protocol")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Yetki Matrisi"
@@ -185,7 +186,8 @@ function _M.render(state, dispatch)
   -- Add bulk save and reset buttons.
 
   return dom.section({ class = "max-w-5xl", ["aria-labelledby"] = "rbac-title" },
-    dom.h1({ id = "rbac-title", class = "text-2xl font-bold mb-2", tabindex = "-1" }, "Rol – Sayfa Yetkileri"),
+    dom.h1({ id = "rbac-title", class = "text-2xl font-bold mb-2 flex items-center gap-2", tabindex = "-1" },
+      icons.get("shield", "w-6 h-6 text-[var(--primary)]"), "Rol – Sayfa Yetkileri"),
     dom.p({ id = "rbac-help", class = "text-sm text-[var(--fg-muted)] mb-4" }, ttl_text),
     dom.div({ class = "overflow-auto border rounded" },
       dom.table({ ["aria-describedby"] = "rbac-help", class = "w-full text-sm" },
@@ -195,10 +197,9 @@ function _M.render(state, dispatch)
         dom.tbody({ ["aria-busy"] = tostring(st.status == "loading") }, dom.list(rows)))),
     dom.p({ id = "lock-note", class = "text-xs text-[var(--fg-muted)] mt-2" },
       "Admin'in yetki matrisi erisimi kilitlidir (kendini kilitleme onlemi)."),
-    dom.div({ class = "flex gap-2 mt-4" },
-      dom.button({
-        type = "button",
-        class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]",
+    dom.div({ class = "flex gap-2 mt-4 flex-wrap" },
+      icons.button({ icon = "save", label = "Tümünü kaydet (PUT)", variant = "accent",
+        title = "Tüm matrisi PUT ile kaydet",
         onclick = function()
           app.spawn(function()
             local payload = types.default_matrix()
@@ -213,11 +214,9 @@ function _M.render(state, dispatch)
             app.toast("success", "Matris kaydedildi")
             app.refresh_permissions()
           end)
-        end,
-      }, "Tumunu kaydet (PUT)"),
-      dom.button({
-        type = "button",
-        class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--border)]",
+        end }),
+      icons.button({ icon = "refresh", label = "Varsayılana sıfırla", variant = "secondary",
+        title = "İzinleri fabrika ayarlarına sıfırla",
         onclick = function()
           app.spawn(function()
             if not require("components.modal").confirm({ title = "Varsayilana sifirlansin mi?",
@@ -259,8 +258,7 @@ function _M.render(state, dispatch)
             app.toast("success", "Matris varsayilana sifirlandi")
             app.refresh_permissions()
           end)
-        end,
-      }, "Varsayilana sifirla")))
+        end })))
 end
 
 return _M

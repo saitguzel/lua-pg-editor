@@ -5,6 +5,7 @@ local api = require("fetch")
 local router = require("router")
 local validation = require("pg_shared.validation")
 local protocol = require("pg_shared.protocol")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Kullanicilar"
@@ -169,16 +170,14 @@ local function user_form(state)
           ["aria-describedby"] = errors.password and "user-password-err" or nil,
           class = "flex-1 px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
         }),
-        dom.button({
-          type = "button",
-          class = "px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] text-sm whitespace-nowrap",
+        icons.button({ icon = "key", label = "Oluştur", variant = "secondary", class = "whitespace-nowrap",
+          title = "Güçlü parola oluştur ve kopyala",
           onclick = function()
             local pw = js.random_password(16)
             dom.set_value("user-password", pw)
             js.clipboard(pw)
             app.toast("info", "Parola olusturuldu ve panoya kopyalandi")
-          end,
-        }, "Olustur")),
+          end })),
       errors.password and dom.p({ id = "user-password-err", class = "field-error text-xs text-[var(--danger)] mt-1" }, errors.password[1]) or nil),
     dom.div({ class = "grid grid-cols-2 gap-3" },
       dom.div({},
@@ -193,13 +192,12 @@ local function user_form(state)
           checked = (not user or user.is_active) and "checked" or nil }),
         dom.label({ ["for"] = "user-active" }, "Aktif"))),
     dom.div({ class = "flex justify-end gap-2 pt-2" },
-      dom.button({ type = "button", class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--border)]",
-        onclick = close_form }, "Iptal"),
+      icons.button({ icon = "x", label = "İptal", variant = "secondary", onclick = close_form }),
       dom.button({
         type = "submit", ["aria-busy"] = tostring(state.users.saving),
         disabled = state.users.saving and "disabled" or nil,
-        class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] disabled:opacity-50",
-      }, state.users.saving and "Kaydediliyor..." or "Kaydet")))
+        class = "btn btn-accent inline-flex items-center gap-1.5 disabled:opacity-50",
+      }, icons.get(state.users.saving and "clock" or "check", "w-4 h-4"), state.users.saving and "Kaydediliyor..." or "Kaydet")))
 end
 
 local function delete_user(u)
@@ -245,35 +243,36 @@ function _M.render(state, dispatch)
         dom.th({ scope = "row", class = "py-2 pr-3 font-normal text-left", ["data-label"] = "E-posta" }, u.email or ""),
         dom.td({ class = "py-2 pr-3", ["data-label"] = "Ad" }, type(u.full_name) == "string" and u.full_name or "—"),
         dom.td({ class = "py-2 pr-3", ["data-label"] = "Rol" },
-          dom.span({ class = "badge badge-role-" .. (u.role or "editor") .. " px-2 py-0.5 rounded text-xs border bg-[var(--bg-elev)]" }, u.role or "")),
+          dom.span({ class = "badge badge-role-" .. (u.role or "editor") .. " inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs border bg-[var(--bg-elev)]" },
+            icons.get(u.role == "admin" and "shield" or "users", "w-3 h-3"), u.role or "")),
         dom.td({ class = "py-2 pr-3", ["data-label"] = "Durum" },
-          dom.span({ class = "dot", ["aria-hidden"] = "true" }, u.is_active and "● " or "○ "),
-          u.is_active and "Aktif" or "Pasif"),
+          dom.span({ class = "inline-flex items-center gap-1" },
+            icons.get(u.is_active and "check" or "x", u.is_active and "w-3 h-3 text-[var(--success)]" or "w-3 h-3 text-[var(--fg-muted)]"),
+            u.is_active and "Aktif" or "Pasif")),
         dom.td({ class = "py-2 pr-3", ["data-label"] = "Son giris" }, fmt(u.last_login_at)),
         dom.td({ class = "py-2 pr-3", ["data-label"] = "Olusturulma" }, fmt(u.created_at)),
         dom.td({ class = "py-2 pr-3 text-right", ["data-label"] = "Islemler" },
           can_manage and dom.button({
-            type = "button", class = "px-2 py-1 min-w-11 min-h-11 text-sm rounded hover:bg-[var(--bg-elev)] mr-1",
-            ["aria-label"] = (u.email or "") .. " duzenle",
+            type = "button", class = "btn btn-ghost btn-icon btn-sm mr-1",
+            ["aria-label"] = (u.email or "") .. " duzenle", title = "Düzenle",
             onclick = function() app.dispatch({ type = "USER_EDIT_OPENED", id = u.id }) end,
-          }, "✎") or nil,
+          }, icons.get("edit", "w-4 h-4")) or nil,
           can_manage and dom.button({
             type = "button",
-              class = "px-2 py-1 min-w-11 min-h-11 text-sm rounded text-[var(--danger)] hover:bg-[var(--bg-elev)] disabled:opacity-40",
-            ["aria-label"] = (u.email or "") .. " sil",
+              class = "btn btn-ghost btn-icon btn-sm text-[var(--danger)] hover:bg-[var(--bg-elev)] disabled:opacity-40",
+            ["aria-label"] = (u.email or "") .. " sil", title = is_self and "Kendi hesabınızı silemezsiniz" or "Sil",
             disabled = is_self and "disabled" or nil,
-            title = is_self and "Kendi hesabinizi silemezsiniz" or nil,
             onclick = function() if not is_self then delete_user(u) end end,
-          }, "🗑") or nil))
+          }, icons.get("trash", "w-4 h-4")) or nil))
     end
     body = dom.tbody({ ["aria-busy"] = tostring(st.status == "loading") }, dom.list(rows))
   end
 
   local table_or_empty
   if st.status ~= "loading" and #st.items == 0 then
-    table_or_empty = layout.empty_state({ icon = "👥", title = "Kullanici bulunamadi",
-      text = (f.q or f.search or f.role or f.is_active) and "Bu filtrelerle eslesen kullanici yok" or "",
-      action_label = (f.q or f.search or f.role or f.is_active) and "Filtreleri temizle" or nil,
+    table_or_empty = layout.empty_state({ icon_svg = "users", title = "Kullanicı bulunamadı",
+      text = (f.q or f.search or f.role or f.is_active) and "Bu filtrelerle eşleşen kullanıcı yok" or "",
+      action_label = (f.q or f.search or f.role or f.is_active) and "Filtreleri temizle" or nil, action_icon = "eraser",
       on_action = function() router.navigate("#/users") end })
   else
     table_or_empty = dom.div({ class = "overflow-x-auto" },
@@ -301,13 +300,10 @@ function _M.render(state, dispatch)
   return dom.section({ ["aria-labelledby"] = "users-title" },
     dom.header({ class = "flex items-center justify-between gap-2 mb-4" },
       dom.h1({ id = "users-title", class = "text-2xl font-bold", tabindex = "-1" },
-        "Kullanicilar" .. ((tonumber(meta.total) or 0) > 0 and (" (" .. meta.total .. ")") or "")),
-      can_manage and dom.button({
-        type = "button",
-        class = "px-4 py-2 min-h-11 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]",
-        ["aria-keyshortcuts"] = "n",
-        onclick = function() app.dispatch({ type = "USER_EDIT_OPENED", id = "new" }) end,
-      }, "+ Kullanici ekle") or nil),
+        "Kullanıcılar" .. ((tonumber(meta.total) or 0) > 0 and (" (" .. meta.total .. ")") or "")),
+      can_manage and icons.button({ icon = "user-plus", label = "+ Kullanıcı ekle", variant = "accent",
+        title = "Yeni kullanıcı ekle (n)", ["aria-keyshortcuts"] = "n",
+        onclick = function() app.dispatch({ type = "USER_EDIT_OPENED", id = "new" }) end }) or nil),
     dom.form({ role = "search", ["aria-label"] = "Kullanici filtreleri",
       class = "flex flex-wrap items-end gap-2 mb-4" },
       dom.label({ class = "flex flex-col text-xs text-[var(--fg-muted)] flex-1 min-w-40" }, "Ara",

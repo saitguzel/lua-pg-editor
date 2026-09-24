@@ -225,7 +225,6 @@ function _M.delete_focused()
 end
 
 -- --- render --------------------------------------------------------------------------
-local BTN = "px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] disabled:opacity-40"
 
 local function render_grid(tb, cur)
   local columns, rows, meta = tb.columns, tb.rows, tb.meta
@@ -304,33 +303,39 @@ function _M.render(state, dispatch)
       meta.kind and meta.kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" }, meta.kind) or nil,
       tb.status == "ready" and not meta.editable and dom.span({ class = "ml-2 text-xs text-[var(--fg-muted)] align-middle" },
         "salt okunur" .. (meta.kind == "table" and " (birincil anahtar yok)" or "")) or nil),
-    dom.div({ class = "flex gap-2 flex-wrap" },
-      editable and dom.button({ type = "button", class = "px-3 py-1.5 text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)]",
-        onclick = function() open_form("insert", nil) end }, "+ Satır ekle") or nil,
-      editable and dom.button({ type = "button", class = BTN, disabled = not (focus_row and focus_row._rid) and "disabled" or nil,
-        onclick = function() open_form("duplicate", focus_row) end }, "Çoğalt") or nil,
-      editable and dom.button({ type = "button", class = BTN .. " text-[var(--danger)]",
-        disabled = #sel_rids == 0 and not (focus_row and focus_row._rid) and "disabled" or nil,
-        onclick = function() delete_rows(#sel_rids > 0 and sel_rids or { focus_row._rid }) end },
-        #sel_rids > 0 and ("Sil (" .. #sel_rids .. ")") or "Sil") or nil,
-      dom.button({ type = "button", class = BTN, ["aria-expanded"] = filter_bar.is_open() and "true" or "false",
+    dom.div({ class = "flex gap-2 flex-wrap items-center" },
+      editable and require("icons").button({ icon = "plus", label = "+ Satır ekle", variant = "accent",
+        title = "Yeni satır ekle", onclick = function() open_form("insert", nil) end }) or nil,
+      editable and require("icons").button({ icon = "copy", label = "Çoğalt", variant = "secondary",
+        disabled = not (focus_row and focus_row._rid), title = "Odaklı satırı çoğalt",
+        onclick = function() open_form("duplicate", focus_row) end }) or nil,
+      editable and require("icons").button({ icon = "trash",
+        label = #sel_rids > 0 and ("Sil (" .. #sel_rids .. ")") or "Sil", variant = "danger",
+        disabled = #sel_rids == 0 and not (focus_row and focus_row._rid), title = "Seçili satırları sil",
+        onclick = function() delete_rows(#sel_rids > 0 and sel_rids or { focus_row._rid }) end }) or nil,
+      require("icons").button({ icon = "filter", label = nfilters > 0 and ("Filtreler (" .. nfilters .. ")") or "Filtreler",
+        variant = nfilters > 0 and "accent" or "secondary",
+        title = nfilters > 0 and (nfilters .. " filtre aktif") or "Filtreleri aç/kapat",
+        ["aria-expanded"] = filter_bar.is_open() and "true" or "false",
         onclick = function()
           if filter_bar.is_open() then filter_bar.close() else filter_bar.open(cur.filters, cur.custom_where) end
           app.schedule_render()
-        end }, nfilters > 0 and ("Filtreler (" .. nfilters .. ")") or "Filtreler"),
+        end }),
       app.can("export.csv") and require("icons").button({ icon = "download", label = "Dışa aktar",
         title = "Dışa aktar (CSV / Excel / JSON)", onclick = export_csv }) or nil,
-      dom.button({ type = "button", class = BTN, title = "Yenile (Ctrl+R)", onclick = reload }, "Yenile"),
-      dom.a({ class = BTN, href = "#/structure/" .. router.urlencode(cur.schema) .. "/" .. router.urlencode(cur.table)
-          .. "?connection_id=" .. router.urlencode(cur.connection_id) .. (cur.database and ("&database=" .. router.urlencode(cur.database)) or "") },
-        "Yapı")))
+      require("icons").button({ icon = "refresh", label = "Yenile", variant = "secondary",
+        title = "Yenile (Ctrl+R)", onclick = reload }),
+      dom.a({ href = "#/structure/" .. router.urlencode(cur.schema) .. "/" .. router.urlencode(cur.table)
+          .. "?connection_id=" .. router.urlencode(cur.connection_id) .. (cur.database and ("&database=" .. router.urlencode(cur.database)) or ""),
+        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
+        require("icons").get("code", "w-4 h-4"), "Yapı")))
 
   local body
   if tb.status == "loading" and #tb.rows == 0 then
     body = require("components.skeleton").lines(6)
   elseif tb.status == "error" then
-    body = dom.div({ role = "alert", class = "p-4 border border-[var(--danger)] rounded text-sm text-[var(--danger)]" },
-      tostring(tb.error and (tb.error.message or tb.error.code) or "Satırlar yüklenemedi"))
+    body = dom.div({ role = "alert", class = "p-4 border border-[var(--danger)] rounded text-sm text-[var(--danger)] flex items-start gap-2" },
+      require("icons").get("alert-triangle", "w-5 h-5 shrink-0"), dom.span({}, tostring(tb.error and (tb.error.message or tb.error.code) or "Satırlar yüklenemedi")))
   else
     body = render_grid(tb, cur)
   end

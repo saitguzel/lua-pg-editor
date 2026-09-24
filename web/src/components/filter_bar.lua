@@ -2,6 +2,7 @@
 -- Filtre ekle / Temizle / Uygula. Degisiklikler taslakta tutulur; yalnizca Uygula URL'ye yazar (her tusta sorgu yok).
 local dom = require("dom")
 local types = require("pg_shared.types")
+local icons = require("icons")
 
 local filter_bar = {}
 
@@ -62,9 +63,9 @@ function filter_bar.render(opts)
       not NO_VALUE[f.operator] and dom.input({ type = "text", value = f.value or "", placeholder = "değer",
         ["aria-label"] = "Filtre " .. i .. " değer", class = sel .. " min-w-32",
         oninput = function(e) f.value = e.value end }) or nil,
-      dom.button({ type = "button", ["aria-label"] = "Filtre " .. i .. " kaldır",
-        class = "px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--bg)]",
-        onclick = function() table.remove(draft.filters, i); rerender() end }, "×"))
+      dom.button({ type = "button", ["aria-label"] = "Filtre " .. i .. " kaldır", title = "Filtreyi kaldır",
+        class = "btn btn-ghost btn-icon btn-sm",
+        onclick = function() table.remove(draft.filters, i); rerender() end }, icons.get("x", "w-3 h-3")))
   end
 
   local function apply()
@@ -90,19 +91,18 @@ function filter_bar.render(opts)
         oninput = function(e) draft.custom_where = e.value or "" end,
         onkeydown = function(e) if e.key == "Enter" then apply(); return true end end })),
     dom.div({ class = "flex gap-2 flex-wrap" },
-      dom.button({ type = "button", class = "px-3 py-1 text-xs border border-dashed border-[var(--border)] rounded",
-        disabled = #columns == 0 and "disabled" or nil,
+      icons.button({ icon = "plus", label = "+ Filtre ekle", variant = "secondary", class = "btn-sm !border-dashed",
+        disabled = #columns == 0, title = "Yeni filtre ekle",
         onclick = function()
           local c = columns[1]
           draft.filters[#draft.filters + 1] = { column = c.name, operator = filter_bar.allowed_ops(c.type_group)[1], value = "" }
           rerender()
-        end }, "+ Filtre ekle"),
-      dom.button({ type = "button", class = "px-3 py-1 text-xs border border-[var(--border)] rounded",
-        onclick = function() draft.filters = {}; draft.custom_where = ""; rerender() end }, "Temizle"),
-      dom.button({ type = "button", class = "px-3 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-fg)]",
-        onclick = apply }, "Uygula"),
-      dom.button({ type = "button", class = "px-3 py-1 text-xs border border-[var(--border)] rounded",
-        onclick = function() draft = nil; if opts.on_close then opts.on_close() end; rerender() end }, "Kapat")))
+        end }),
+      icons.button({ icon = "eraser", label = "Temizle", variant = "ghost", class = "btn-sm",
+        onclick = function() draft.filters = {}; draft.custom_where = ""; rerender() end }),
+      icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm", onclick = apply }),
+      icons.button({ icon = "x", label = "Kapat", variant = "ghost", class = "btn-sm",
+        onclick = function() draft = nil; if opts.on_close then opts.on_close() end; rerender() end })))
 end
 
 return filter_bar

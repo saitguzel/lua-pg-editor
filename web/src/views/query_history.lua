@@ -5,6 +5,7 @@ local app = require("app")
 local api = require("fetch")
 local router = require("router")
 local protocol = require("pg_shared.protocol")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Sorgu Geçmişi"
@@ -113,27 +114,26 @@ end
 
 local function entry_row(state, entry)
   local sql = entry.sql or ""
-  local BTN = "px-2.5 py-1 text-xs rounded border border-[var(--border)] hover:bg-[var(--bg)]"
   return dom.li({ key = tostring(entry.id),
-    class = "flex items-start gap-3 p-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
+    class = "flex items-start gap-3 p-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] hover:shadow-sm transition-shadow" },
     dom.div({ class = "flex-1 min-w-0 space-y-1" },
       dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-24 overflow-hidden" },
         _M.highlight(sql, search)),
-      dom.div({ class = "flex flex-wrap gap-3 text-[11px] text-[var(--fg-muted)]" },
-        dom.time({ datetime = entry.executed_at }, when(entry.executed_at)),
-        dom.span({}, conn_name(state, entry.connection_id) .. " / " .. tostring(entry.database or "")),
+      dom.div({ class = "flex flex-wrap gap-3 text-[11px] text-[var(--fg-muted)] items-center" },
+        dom.span({ class = "inline-flex items-center gap-1" }, icons.get("clock", "w-3 h-3"), when(entry.executed_at)),
+        dom.span({ class = "inline-flex items-center gap-1" }, icons.get("plug", "w-3 h-3"), conn_name(state, entry.connection_id) .. " / " .. tostring(entry.database or "")),
         entry.row_count and dom.span({}, tostring(entry.row_count) .. " satır") or nil,
         entry.duration_ms and dom.span({}, tostring(entry.duration_ms) .. " ms") or nil,
-        entry.truncated and dom.span({ class = "text-[var(--warning)]" }, "limit") or nil)),
+        entry.truncated and dom.span({ class = "text-[var(--warning)] inline-flex items-center gap-0.5" }, icons.get("alert-circle", "w-3 h-3"), "limit") or nil)),
     dom.div({ class = "flex flex-col gap-1 shrink-0" },
-      dom.button({ type = "button", class = "px-2.5 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-fg)]",
-        onclick = function() _M.apply(entry) end }, "Uygula"),
-      dom.button({ type = "button", class = BTN, onclick = function()
-        require("views.query_editor").open_in_new_tab(sql, { connection_id = entry.connection_id, database = entry.database })
-      end }, "Yeni sekmede aç"),
-      dom.button({ type = "button", class = BTN, onclick = function()
-        js.clipboard(sql); app.toast("success", "Kopyalandı")
-      end }, "Kopyala")))
+      icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm", title = "Aktif sekmeye uygula",
+        onclick = function() _M.apply(entry) end }),
+      icons.button({ icon = "external-link", label = "Yeni sekmede aç", variant = "secondary", class = "btn-sm",
+        onclick = function()
+          require("views.query_editor").open_in_new_tab(sql, { connection_id = entry.connection_id, database = entry.database })
+        end }),
+      icons.button({ icon = "copy", label = "Kopyala", variant = "ghost", class = "btn-sm",
+        onclick = function() js.clipboard(sql); app.toast("success", "Kopyalandı") end })))
 end
 
 function _M.render(state)
@@ -160,18 +160,17 @@ function _M.render(state)
     end),
     dom.button({ type = "button", class = "btn btn-secondary btn-sm",
       onclick = function() app.spawn(load, filters()) end }, require("icons").get("refresh"), dom.span({}, "Yenile")),
-    f.connection_id and #items > 0 and dom.button({ type = "button",
-      class = "text-xs px-2 py-1 border border-[var(--danger)] text-[var(--danger)] rounded ml-auto",
-      onclick = function() _M.clear(f.connection_id, f.database, function() load(filters()) end) end },
-      "Temizle") or nil)
+    f.connection_id and #items > 0 and icons.button({ icon = "trash", label = "Temizle", variant = "danger",
+      class = "btn-sm ml-auto", title = "Geçmişi temizle",
+      onclick = function() _M.clear(f.connection_id, f.database, function() load(filters()) end) end }) or nil)
 
   local body
   if hist.status == "loading" and #items == 0 then
     body = require("components.skeleton").lines(5)
   elseif #items == 0 then
-    body = search ~= "" and require("views.layout").empty_state({ icon = "🔍", title = "Eşleşme yok",
+    body = search ~= "" and require("views.layout").empty_state({ icon_svg = "search", title = "Eşleşme yok",
       text = "\"" .. search .. "\" içeren sorgu bulunamadı" })
-      or require("views.layout").empty_state({ icon = "🕘", title = "Geçmiş boş",
+      or require("views.layout").empty_state({ icon_svg = "history", title = "Geçmiş boş",
       text = "Çalıştırılan sorgular burada listelenir" })
   else
     local rows = {}
@@ -179,15 +178,16 @@ function _M.render(state)
     body = dom.ul({ class = "space-y-2" }, dom.list(rows))
   end
   local total_pages = tonumber(meta.total_pages) or 1
-  local pager = total_pages > 1 and dom.nav({ ["aria-label"] = "Sayfalama", class = "flex items-center gap-2" },
-    dom.button({ type = "button", class = sel, disabled = f.page <= 1 and "disabled" or nil,
-      onclick = function() router.replace_query({ page = tostring(f.page - 1) }) end }, "‹ Önceki"),
-    dom.span({ class = "text-sm" }, f.page .. " / " .. total_pages),
-    dom.button({ type = "button", class = sel, disabled = f.page >= total_pages and "disabled" or nil,
-      onclick = function() router.replace_query({ page = tostring(f.page + 1) }) end }, "Sonraki ›")) or nil
+  local pager = total_pages > 1 and dom.nav({ ["aria-label"] = "Sayfalama", class = "flex items-center gap-2 justify-center mt-4" },
+    icons.button({ icon = "chevron-left", label = "Önceki", variant = "secondary", disabled = f.page <= 1,
+      onclick = function() router.replace_query({ page = tostring(f.page - 1) }) end }),
+    dom.span({ class = "text-sm text-[var(--fg-muted)] px-2", ["aria-current"] = "page" }, f.page .. " / " .. total_pages),
+    icons.button({ icon = "chevron-right", label = "Sonraki", variant = "secondary", disabled = f.page >= total_pages,
+      onclick = function() router.replace_query({ page = tostring(f.page + 1) }) end })) or nil
 
   return dom.div({ class = "space-y-3" },
-    dom.h1({ class = "text-xl font-bold", tabindex = "-1" }, "Sorgu Geçmişi"),
+    dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
+      icons.get("history", "w-6 h-6 text-[var(--primary)]"), "Sorgu Geçmişi"),
     toolbar, body, pager)
 end
 
@@ -221,8 +221,8 @@ function _M.open_popover(tab)
                 _M.highlight(e.sql or "", search)),
               dom.time({ class = "text-[11px] text-[var(--fg-muted)]", datetime = e.executed_at },
                 when(e.executed_at))),
-            dom.button({ type = "button", class = "btn btn-accent btn-sm",
-              onclick = function() modal.close("history-popover"); _M.apply(e) end }, "Uygula"))
+            icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm",
+              onclick = function() modal.close("history-popover"); _M.apply(e) end }))
         end
         return dom.div({ class = "space-y-2" },
           search_input("history-popover-search", load_popover),
@@ -231,11 +231,11 @@ function _M.open_popover(tab)
               search ~= "" and "Eşleşen sorgu yok." or "Bu bağlantı/veritabanı için geçmiş yok."))
       end,
       actions = {
-        { label = "Tümünü gör", onclick = function()
+        { label = "Tümünü gör", class = "btn btn-secondary", onclick = function()
           router.navigate("#/query/history?connection_id=" .. router.urlencode(tab.connection_id)
             .. (tab.database and ("&database=" .. router.urlencode(tab.database)) or ""))
         end },
-        { label = "Temizle", onclick = function() _M.clear(tab.connection_id, tab.database) end },
+        { label = "Temizle", class = "btn btn-danger", onclick = function() _M.clear(tab.connection_id, tab.database) end },
       } })
   end)
 end

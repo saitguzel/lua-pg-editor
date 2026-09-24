@@ -79,10 +79,12 @@ function layout.render(state, dispatch, content, title)
           theme_toggle.render_compact(state, dispatch),
           dom.a({ href = "#/profile", class = "text-sm text-[var(--fg-muted)] hover:underline truncate max-w-40",
             ["aria-current"] = state.route.name == "profile" and "page" or nil }, user.email or "Profil"),
+          icons.button({ icon = "logout", label = "Çıkış", variant = "secondary",
+            title = "Çıkış yap", class = "hidden sm:inline-flex", onclick = function() app.logout() end }),
           dom.button({
-            type = "button", class = "btn btn-secondary", title = "Çıkış",
-            onclick = function() app.logout() end,
-          }, icons.get("logout"), dom.span({ class = "hidden sm:inline" }, "Çıkış")))),
+            type = "button", class = "btn btn-secondary btn-icon sm:hidden", title = "Çıkış",
+            ["aria-label"] = "Çıkış yap", onclick = function() app.logout() end,
+          }, icons.get("logout")))),
       dom.main({ id = "main", tabindex = "-1", class = "flex-1 p-4 md:p-6 min-w-0",
         ["aria-label"] = title }, content)))
 end
@@ -99,53 +101,52 @@ end
 
 function layout.forbidden_page()
   return dom.section({ class = "p-8 max-w-md mx-auto text-center" },
+    dom.div({ class = "flex justify-center mb-3 text-[var(--danger)]" }, icons.get("shield", "w-10 h-10 opacity-80")),
     dom.h1({ class = "text-2xl font-bold mb-2", tabindex = "-1" }, "Bu sayfaya erişim yetkiniz yok"),
     dom.p({ class = "text-[var(--fg-muted)] mb-4" }, "Bu alan için gerekli izin verilmedi. Yöneticinizle görüşün."),
-    dom.a({ href = "#/", class = "text-[var(--primary)] underline" }, "Panoya dön"))
+    dom.a({ href = "#/", class = "inline-flex items-center gap-1.5 text-[var(--primary)] underline" },
+      icons.get("arrow-left", "w-4 h-4"), "Panoya dön"))
 end
 
 function layout.empty_state(opts)
+  local action_icon = opts.action_icon or "plus"
   return dom.div({ class = "text-center py-16" },
-    dom.div({ class = "text-4xl mb-3", ["aria-hidden"] = "true" }, opts.icon or "∅"),
+    opts.icon_svg and dom.div({ class = "flex justify-center mb-3 text-[var(--fg-muted)]" }, icons.get(opts.icon_svg, "w-10 h-10 opacity-60"))
+      or dom.div({ class = "text-4xl mb-3", ["aria-hidden"] = "true" }, opts.icon or "∅"),
     dom.h2({ class = "text-lg font-semibold mb-1" }, opts.title or "Kayıt yok"),
     dom.p({ class = "text-[var(--fg-muted)] mb-4" }, opts.text or ""),
-    opts.action_label and dom.button({
-      type = "button",
-      class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]",
+    opts.action_label and icons.button({
+      icon = action_icon, label = opts.action_label, variant = "accent",
       onclick = opts.on_action,
-    }, opts.action_label))
+    }))
 end
 
 function layout.pagination(meta, on_page)
   meta = meta or {}
   local page, pages = tonumber(meta.page) or 1, tonumber(meta.total_pages) or 1
   if pages <= 1 then return nil end
-  local btn = "px-3 py-1.5 min-h-11 border border-[var(--border)] rounded-[var(--radius)] disabled:opacity-40"
-  return dom.nav({ ["aria-label"] = "Sayfalama", class = "flex items-center justify-center gap-4 mt-4" },
-    dom.button({
-      type = "button", class = btn, disabled = page <= 1 and "disabled" or nil,
-      ["aria-label"] = "Önceki sayfa",
-      onclick = function() on_page(math.max(page - 1, 1)) end,
-    }, "‹ Önceki"),
-    dom.span({ class = "text-sm text-[var(--fg-muted)]", ["aria-current"] = "page" },
+  return dom.nav({ ["aria-label"] = "Sayfalama", class = "flex items-center justify-center gap-4 mt-4 flex-wrap" },
+    icons.button({ icon = "chevron-left", label = "Önceki", variant = "secondary",
+      disabled = page <= 1 and true or nil, title = "Önceki sayfa",
+      onclick = function() on_page(math.max(page - 1, 1)) end }),
+    dom.span({ class = "text-sm text-[var(--fg-muted)] px-2", ["aria-current"] = "page", role = "status" },
       "Sayfa " .. page .. " / " .. pages),
-    dom.button({
-      type = "button", class = btn, disabled = page >= pages and "disabled" or nil,
-      ["aria-label"] = "Sonraki sayfa",
-      onclick = function() on_page(page + 1) end,
-    }, "Sonraki ›"))
+    icons.button({ icon = "chevron-right", label = "Sonraki", variant = "secondary",
+      disabled = page >= pages and true or nil, title = "Sonraki sayfa",
+      onclick = function() on_page(page + 1) end }))
 end
 
 function layout.sort_th(label, field, sort, on_sort, class)
   local dir = "none"
   if sort == field then dir = "ascending" elseif sort == "-" .. field then dir = "descending" end
   local next_sort = dir == "ascending" and ("-" .. field) or field
+  local sort_icon = dir == "ascending" and "chevron-up" or (dir == "descending" and "chevron-down" or "chevron-down")
   return dom.th({ scope = "col", class = class or "py-2 pr-3", ["aria-sort"] = dir },
     dom.button({
-      type = "button", class = "inline-flex items-center gap-1 font-inherit hover:underline",
+      type = "button", class = "inline-flex items-center gap-1.5 font-medium hover:text-[var(--primary)] transition-colors",
       onclick = function() on_sort(next_sort) end,
-    }, label, dom.span({ ["aria-hidden"] = "true" },
-      dir == "ascending" and "▲" or (dir == "descending" and "▼" or "↕"))))
+      title = dir == "none" and "Sırala" or (dir == "ascending" and "Azalan sırala" or "Sıralamayı kaldır"),
+    }, label, icons.get(sort_icon, "w-3.5 h-3.5 opacity-60")))
 end
 
 return layout

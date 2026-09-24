@@ -4,6 +4,7 @@ local app = require("app")
 local api = require("fetch")
 local theme_toggle = require("components.theme_toggle")
 local shortcuts = require("shortcuts")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Profil"
@@ -42,7 +43,8 @@ function _M.render(state, dispatch)
   end
 
   return dom.section({ class = "max-w-2xl", ["aria-labelledby"] = "profile-title" },
-    dom.h1({ id = "profile-title", class = "text-2xl font-bold mb-4", tabindex = "-1" }, "Profil"),
+    dom.h1({ id = "profile-title", class = "text-2xl font-bold mb-4 flex items-center gap-2", tabindex = "-1" },
+      icons.get("users", "w-6 h-6 text-[var(--primary)]"), "Profil"),
     card("profile-account", "Hesap",
       dom.dl({ class = "grid grid-cols-[10rem_1fr] gap-y-2" },
         dom.dt({ class = "text-[var(--fg-muted)]" }, "Ad"),
@@ -71,12 +73,8 @@ function _M.render(state, dispatch)
         dom.thead({ class = "sr-only" }, dom.tr({},
           dom.th({ scope = "col" }, "Tuş"), dom.th({ scope = "col" }, "İşlev"))),
         dom.tbody({}, shortcut_rows))),
-    dom.button({
-      type = "button",
-      class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--danger)] text-[var(--danger)] " ..
-        "hover:bg-[var(--bg-elev)]",
-      onclick = function() app.logout() end,
-    }, "Çıkış yap"))
+    icons.button({ icon = "logout", label = "Çıkış yap", variant = "danger",
+      title = "Oturumu kapat", onclick = function() app.logout() end }))
 end
 
 return _M

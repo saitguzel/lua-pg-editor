@@ -4,6 +4,7 @@ local app = require("app")
 local storage = require("storage")
 local theme_toggle = require("components.theme_toggle")
 local types = require("pg_shared.types")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Ayarlar"
@@ -50,14 +51,15 @@ function _M.render(state, dispatch)
   end
 
   return dom.div({ class = "max-w-4xl space-y-6" },
-    dom.h1({ class = "text-2xl font-bold", tabindex = "-1" }, "Ayarlar"),
+    dom.h1({ class = "text-2xl font-bold flex items-center gap-2", tabindex = "-1" },
+      icons.get("settings", "w-6 h-6 text-[var(--primary)]"), "Ayarlar"),
     dom.section({ class = "space-y-3 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
-      dom.h2({ class = "font-semibold" }, "Tema"),
-      dom.p({ class = "text-sm text-[var(--fg-muted)]" }, "Arayuz temasi — sistem secili ise isletim sisteminizin tercihine uyar."),
+      dom.h2({ class = "font-semibold flex items-center gap-2" }, icons.get("settings", "w-4 h-4 text-[var(--primary)]"), "Tema"),
+      dom.p({ class = "text-sm text-[var(--fg-muted)]" }, "Arayüz teması — sistem seçili ise işletim sisteminizin tercihine uyar."),
       theme_toggle.render(state, dispatch),
-      dom.p({ class = "text-xs text-[var(--fg-muted)]" }, "Secim otomatik kaydedilir (localStorage: pg.theme).")),
+      dom.p({ class = "text-xs text-[var(--fg-muted)]" }, "Seçim otomatik kaydedilir (localStorage: pg.theme).")),
     dom.section({ class = "space-y-3 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
-      dom.h2({ class = "font-semibold" }, "Tablo varsayilanlari"),
+      dom.h2({ class = "font-semibold flex items-center gap-2" }, icons.get("table", "w-4 h-4 text-[var(--primary)]"), "Tablo varsayılanları"),
       dom.div({ class = "grid grid-cols-1 md:grid-cols-2 gap-4" },
         dom.div({},
           dom.label({ ["for"] = "settings-per-page", class = "block text-sm font-medium mb-1" }, "Sayfa boyutu (per_page)"),
@@ -84,7 +86,7 @@ function _M.render(state, dispatch)
           }, dom.list(row_opts)),
           dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" }, "Sorgu editoru icin varsayilan limit (100/1000/5000/50000)")))),
     dom.section({ class = "space-y-2 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
-      dom.h2({ class = "font-semibold" }, "Görünüm"),
+      dom.h2({ class = "font-semibold flex items-center gap-2" }, icons.get("eye", "w-4 h-4 text-[var(--primary)]"), "Görünüm"),
       dom.label({ class = "flex items-center gap-2 text-sm" },
         dom.input({ id = "settings-compact", type = "checkbox",
           checked = storage.get_raw("density") == "compact" and "checked" or nil,
@@ -96,7 +98,7 @@ function _M.render(state, dispatch)
         "Sıkı görünüm (compact mode) — tablolarda daha fazla satır")),
     require("views.ai_settings").render(),
     dom.section({ class = "p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]" },
-      dom.h2({ class = "font-semibold mb-2" }, "Sistem"),
+      dom.h2({ class = "font-semibold mb-2 flex items-center gap-2" }, icons.get("info", "w-4 h-4 text-[var(--primary)]"), "Sistem"),
       dom.dl({ class = "grid grid-cols-[10rem_1fr] gap-y-1 text-sm" },
         dom.dt({ class = "text-[var(--fg-muted)]" }, "Uygulama"),
         dom.dd({}, "pgLua — PostgreSQL Web Editor"),

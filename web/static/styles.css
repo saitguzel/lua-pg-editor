@@ -165,6 +165,12 @@ dialog.drawer { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: m
 /* dar ekran: toolbar butonları yalnızca ikon (title/aria-label korunur) */
 @media (max-width: 1023px) { .toolbar-collapse .btn > span { display: none; } .toolbar-collapse .btn { padding: .375rem; } }
 
+/* UX mikro-iyileştirmeler: buton odak halkası, kart hover, link ikon geçişi */
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.card-hover:hover { box-shadow: 0 2px 8px rgb(0 0 0 / .08); transform: translateY(-1px); transition: box-shadow .15s, transform .15s; }
+.link-icon { transition: transform .15s; }
+a:hover .link-icon { transform: translateX(2px); }
+
 /* Ana menü rail modu: kapalıyken yalnızca ikonlar (masaüstü) */
 .sidebar { transition: width .2s ease, padding .2s ease; }
 .sidebar-rail { width: 3.5rem; padding-left: .5rem; padding-right: .5rem; }

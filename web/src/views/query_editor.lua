@@ -469,24 +469,21 @@ local function render_tab_bar(dispatch, tabs, active_idx)
         type = "button", ["aria-current"] = is_active and "true" or nil, ["data-tab"] = "query",
         title = title .. " (sağ tık: menü)",
         class = is_active
-          and "px-3 py-1.5 text-sm bg-[var(--primary)] text-[var(--primary-fg)] rounded-l border border-[var(--primary)] max-w-56 truncate"
-          or "px-3 py-1.5 text-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-l hover:bg-[var(--bg)] max-w-56 truncate",
+          and "inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--primary)] text-[var(--primary-fg)] rounded-l border border-[var(--primary)] max-w-56 truncate"
+          or "inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-l hover:bg-[var(--bg)] max-w-56 truncate",
         onclick = function() dispatch({ type = "QUERY_TAB_SWITCHED", index = i }); schedule_persist() end,
         oncontextmenu = function(e) tab_menu(e, t) end,
-      }, (t.status == "running" and "⏳ " or "") .. title),
+      }, t.status == "running" and icons.get("clock", "w-3 h-3 animate-spin") or nil, title),
       dom.button({
         type = "button",
-        class = "px-1.5 py-1.5 text-xs rounded-r border-y border-r border-[var(--border)] hover:bg-[var(--bg-elev)]",
+        class = "px-1.5 py-1.5 text-xs rounded-r border-y border-r border-[var(--border)] hover:bg-[var(--bg-elev)] hover:text-[var(--danger)] transition-colors",
         ["aria-label"] = title .. " sekmesini kapat",
         onclick = function() close_tab(t.id) end,
-      }, "×"))
+      }, icons.get("x", "w-3 h-3")))
   end
-  items[#items + 1] = dom.button({
-    type = "button",
-    class = "px-3 py-1.5 border border-dashed border-[var(--border)] rounded text-sm hover:bg-[var(--bg-elev)]",
-    ["aria-label"] = "Yeni sorgu sekmesi", title = "Yeni sekme (Alt+N)",
-    onclick = function() new_tab({ sql = "" }) end,
-  }, "+")
+  items[#items + 1] = icons.button({ icon = "plus", label = "Yeni sekme", variant = "secondary",
+    class = "border-dashed", title = "Yeni sekme (Alt+N)", ["aria-label"] = "Yeni sorgu sekmesi",
+    onclick = function() new_tab({ sql = "" }) end })
   return dom.nav({ ["aria-label"] = "Sorgu sekmeleri", class = "flex gap-2 flex-wrap items-center" },
     dom.list(items))
 end
@@ -520,9 +517,9 @@ database_picker = function(dispatch, tab)
       end,
     }),
     dom.datalist({ id = list_id }, dom.list(opts)),
-    dom.button({ type = "button", title = "Veritabanı listesini yenile", ["aria-label"] = "Veritabanı listesini yenile",
-      class = "px-2 py-1.5 text-sm border border-[var(--border)] rounded",
-      onclick = function() app.spawn(load_databases, conn) end }, "↻"))
+      dom.button({ type = "button", title = "Veritabanı listesini yenile", ["aria-label"] = "Veritabanı listesini yenile",
+      class = "btn btn-ghost btn-icon btn-sm",
+      onclick = function() app.spawn(load_databases, conn) end }, icons.get("refresh", "w-4 h-4")))
 end
 
 local function render_toolbar(state, dispatch, tab)
@@ -638,9 +635,10 @@ function _M.render(state, dispatch)
       render_result(tab))
   else
     main = dom.div({ class = "p-6 text-center border border-dashed border-[var(--border)] rounded-[var(--radius)]" },
+      dom.div({ class = "flex justify-center mb-2 text-[var(--fg-muted)]" }, icons.get("terminal", "w-8 h-8 opacity-60")),
       dom.p({ class = "text-sm text-[var(--fg-muted)] mb-3" }, "Açık sorgu sekmesi yok."),
-      dom.button({ type = "button", class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]",
-        onclick = function() new_tab({ sql = "" }) end }, "Yeni sekme"))
+      icons.button({ icon = "plus", label = "Yeni sekme", variant = "accent",
+        onclick = function() new_tab({ sql = "" }) end }))
   end
 
   local ok, sidebar_mod = pcall(require, "views.schema_sidebar")
@@ -649,7 +647,8 @@ function _M.render(state, dispatch)
   local objects_hidden = ok and sidebar_mod.is_hidden(state)
 
   return dom.div({ class = "space-y-3" },
-    dom.h1({ class = "text-xl font-bold", tabindex = "-1" }, "Sorgu Editörü"),
+    dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
+      icons.get("terminal", "w-6 h-6 text-[var(--primary)]"), "Sorgu Editörü"),
     render_tab_bar(dispatch, tabs, active_idx),
     -- nesne paneli | ayraç | editör; panel gizlenince editör genişler (styles.css .query-grid)
     dom.div({ class = "query-grid" .. (objects_hidden and " objects-hidden" or "") },

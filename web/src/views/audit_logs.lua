@@ -6,6 +6,7 @@ local router = require("router")
 local types = require("pg_shared.types")
 local protocol = require("pg_shared.protocol")
 local json = require("json")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Denetim Kayıtları"
@@ -181,11 +182,14 @@ local function detail_drawer(state)
         json_encode(log)))), close_detail, { class = drawer_class })
 end
 
-local function stat_li(label, value, danger)
-  return dom.li({ class = "bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-3" },
-    dom.p({ class = "text-sm text-[var(--fg-muted)]" }, label),
-    dom.p({ class = danger and "text-xl font-bold text-[var(--danger)]" or "text-xl font-bold truncate" },
-      tostring(value or "—")))
+local function stat_li(label, value, danger, icon)
+  return dom.li({ class = "bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-3 flex items-start gap-2" },
+    icon and dom.div({ class = danger and "p-1.5 rounded bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] text-[var(--danger)]" or "p-1.5 rounded bg-[var(--bg)] text-[var(--fg-muted)]" },
+      icons.get(icon, "w-4 h-4")) or nil,
+    dom.div({},
+      dom.p({ class = "text-sm text-[var(--fg-muted)]" }, label),
+      dom.p({ class = danger and "text-xl font-bold text-[var(--danger)]" or "text-xl font-bold truncate" },
+        tostring(value or "—"))))
 end
 
 local function export_csv(filters)
@@ -272,20 +276,19 @@ function _M.render(state, dispatch)
 
   return dom.section({ ["aria-labelledby"] = "audit-title" },
     dom.header({ class = "flex items-center justify-between gap-2 mb-4" },
-      dom.h1({ id = "audit-title", class = "text-2xl font-bold", tabindex = "-1" }, "Denetim Kayıtları"),
-      dom.button({
-        type = "button",
-        class = "px-4 py-2 min-h-11 rounded-[var(--radius)] border border-[var(--border)] disabled:opacity-50",
-        ["aria-busy"] = tostring(st.exporting),
-        disabled = st.exporting and "disabled" or nil,
-        onclick = function() export_csv(f) end,
-      }, st.exporting and "Hazırlanıyor…" or "CSV indir")),
+      dom.h1({ id = "audit-title", class = "text-2xl font-bold flex items-center gap-2", tabindex = "-1" },
+        icons.get("list", "w-6 h-6 text-[var(--primary)]"), "Denetim Kayıtları"),
+      icons.button({ icon = st.exporting and "clock" or "download",
+        label = st.exporting and "Hazırlanıyor…" or "CSV indir",
+        variant = "secondary", disabled = st.exporting and true or nil,
+        title = "Denetim kayıtlarını CSV olarak indir",
+        onclick = function() export_csv(f) end })),
     dom.ul({ class = "grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4", role = "list", ["aria-label"] = "Özet" },
-      stat_li("Toplam", stats.total or meta.total),
-      stat_li("Başarısız", failure_count, true),
-      stat_li("En çok eylem", top_action and (top_action .. " (" .. top_count .. ")") or nil),
+      stat_li("Toplam", stats.total or meta.total, false, "list"),
+      stat_li("Başarısız", failure_count, true, "alert-triangle"),
+      stat_li("En çok eylem", top_action and (top_action .. " (" .. top_count .. ")") or nil, false, "zap"),
       stat_li("Günlük kayıt", type(by_day) == "table" and by_day[1] and
-        (tonumber(by_day[1].count) or tonumber(by_day[1].total)) or nil)),
+        (tonumber(by_day[1].count) or tonumber(by_day[1].total)) or nil, false, "clock")),
     dom.form({ role = "search", ["aria-label"] = "Audit filtreleri", class = "flex flex-wrap items-end gap-2 mb-4" },
       dom.div({ class = "flex flex-col" },
         dom.label({ ["for"] = "audit-filter-1", class = "text-xs text-[var(--fg-muted)]" }, "Eylem"),
@@ -328,10 +331,10 @@ function _M.render(state, dispatch)
             set_filters({ to = iso })
           end,
         })),
-      dom.button({ type = "button", class = field_cls,
-        onclick = function() router.navigate("#/audit") end }, "Filtreleri sıfırla")),
+      icons.button({ icon = "eraser", label = "Filtreleri sıfırla", variant = "ghost",
+        title = "Tüm filtreleri temizle", onclick = function() router.navigate("#/audit") end })),
     (st.status ~= "loading" and #st.items == 0)
-      and layout.empty_state({ icon = "≡", title = "Kayıt yok", text = "Bu filtrelerle eşleşen denetim kaydı yok" })
+      and layout.empty_state({ icon_svg = "list", title = "Kayıt yok", text = "Bu filtrelerle eşleşen denetim kaydı yok" })
       or dom.div({ class = "overflow-x-auto" },
         dom.table({ class = "w-full text-sm responsive-table" },
           dom.caption({ class = "sr-only" }, "Denetim kayıtları, " .. (meta.total or 0) .. " kayıt"),

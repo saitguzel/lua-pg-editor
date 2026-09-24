@@ -28,7 +28,7 @@ function csv_dialog.open(title, on_export)
         dom.input({ id = "csv-limit", type = "number", min = "1", max = "50000", value = tostring(last.limit), class = cls })),
       dom.label({ class = "flex items-center gap-2 text-sm" },
         dom.input({ id = "csv-header", type = "checkbox", checked = last.include_header and "checked" or nil }), "Başlık satırı")),
-    actions = { { label = "İndir", class = "btn btn-accent",
+    actions = { { label = "İndir", class = "btn btn-accent", icon = "download",
       onclick = function()
         last = {
           format = dom.value("export-format") or "csv",

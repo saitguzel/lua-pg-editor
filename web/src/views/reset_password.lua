@@ -5,6 +5,7 @@ local api = require("fetch")
 local router = require("router")
 local validation = require("pg_shared.validation")
 local protocol = require("pg_shared.protocol")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Yeni parola"
@@ -31,18 +32,22 @@ function _M.render(state)
   if done then
     return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
       dom.div({ class = "w-full max-w-sm text-center", role = "status" },
+        dom.div({ class = "flex justify-center mb-2 text-[var(--success)]" }, icons.get("check", "w-8 h-8")),
         dom.h1({ class = "text-xl font-bold mb-2" }, "Parolanız güncellendi"),
-        dom.a({ href = "#/login", class = "text-[var(--primary)] underline" }, "Giriş yap")))
+        dom.a({ href = "#/login", class = "inline-flex items-center gap-1 text-[var(--primary)] underline" },
+          icons.get("log-in", "w-4 h-4"), "Giriş yap")))
   end
 
   local token = held_token or (state.route and state.route.query and state.route.query.token)
   if not token_valid(token) then
     return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
       dom.div({ class = "w-full max-w-sm text-center" },
+        dom.div({ class = "flex justify-center mb-2 text-[var(--danger)]" }, icons.get("alert-triangle", "w-8 h-8")),
         dom.h1({ class = "text-xl font-bold mb-2" }, "Bağlantı geçersiz"),
         dom.p({ class = "text-[var(--fg-muted)] mb-4" },
           "Bu sıfırlama bağlantısı geçersiz veya eksik."),
-        dom.a({ href = "#/forgot-password", class = "text-[var(--primary)] underline" }, "Yeni bağlantı iste")))
+        dom.a({ href = "#/forgot-password", class = "inline-flex items-center gap-1 text-[var(--primary)] underline" },
+          icons.get("mail", "w-4 h-4"), "Yeni bağlantı iste")))
   end
 
   return dom.main({ class = "min-h-screen flex items-center justify-center p-4", id = "main", tabindex = "-1" },
@@ -56,11 +61,13 @@ function _M.render(state)
         app.spawn(function() _M.submit(token, p1, p2) end)
       end,
     },
-      dom.h1({ id = "reset-title", class = "text-xl font-bold mb-4" }, "Yeni parola belirleyin"),
-      dom.div({ role = "alert", class = errors._ and "field-error mb-2" or "" },
-        errors._ and errors._[1] or nil),
+      dom.h1({ id = "reset-title", class = "text-xl font-bold mb-4 flex items-center gap-2" },
+        icons.get("key", "w-5 h-5 text-[var(--primary)]"), "Yeni parola belirleyin"),
+      dom.div({ role = "alert", class = errors._ and "field-error mb-2 flex items-center gap-1.5" or "" },
+        errors._ and icons.get("alert-circle", "w-4 h-4") or nil, errors._ and errors._[1] or nil),
       dom.div({ class = "mb-3" },
-        dom.label({ ["for"] = "new-password", class = "block text-sm font-medium mb-1" }, "Yeni parola"),
+        dom.label({ ["for"] = "new-password", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
+          icons.get("key", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "Yeni parola"),
         dom.input({
           id = "new-password", type = "password", required = "required", minlength = "8",
           autocomplete = "new-password",
@@ -81,7 +88,8 @@ function _M.render(state)
         }),
         dom.p({ id = "pw-strength", class = "text-xs text-[var(--fg-muted)] mt-1", ["aria-live"] = "polite" }, "")),
       dom.div({ class = "mb-4" },
-        dom.label({ ["for"] = "new-password-confirm", class = "block text-sm font-medium mb-1" }, "Parolayı onayla"),
+        dom.label({ ["for"] = "new-password-confirm", class = "block text-sm font-medium mb-1 flex items-center gap-1" },
+          icons.get("key", "w-3.5 h-3.5 text-[var(--fg-muted)]"), "Parolayı onayla"),
         dom.input({
           id = "new-password-confirm", type = "password", required = "required", minlength = "8",
           autocomplete = "new-password",
@@ -90,8 +98,8 @@ function _M.render(state)
         errors.new_password and dom.p({ class = "field-error" }, errors.new_password[1]) or nil),
       dom.button({
         type = "submit",
-        class = "w-full py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium",
-      }, "Parolayı güncelle")))
+        class = "w-full py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] font-medium inline-flex items-center justify-center gap-1.5",
+      }, icons.get("check", "w-4 h-4"), "Parolayı güncelle")))
 end
 
 function _M.submit(token, password, confirm)

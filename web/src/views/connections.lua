@@ -8,6 +8,7 @@ local router = require("router")
 local validation = require("pg_shared.validation")
 local protocol = require("pg_shared.protocol")
 local json = require("json")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Bağlantılar"
@@ -445,12 +446,11 @@ local function connection_form(state)
           conn.ssh_host_trusted and ("Sunucu anahtarı onaylı: " .. tostring(conn.ssh_host_key_fingerprint))
             or "Sunucu anahtarı henüz onaylanmadı") or nil)),
     dom.div({ class = "flex justify-end gap-2 pt-2" },
-      dom.button({ type = "button",
-        class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--border)]",
-        onclick = close_editor }, "İptal"),
+      icons.button({ icon = "x", label = "İptal", variant = "secondary",
+        onclick = close_editor }),
       dom.button({ type = "submit",
-        class = "px-4 py-2 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)]" },
-        is_edit and "Kaydet" or "Oluştur"))
+        class = "btn btn-accent inline-flex items-center gap-1.5" },
+        icons.get("check", "w-4 h-4"), is_edit and "Kaydet" or "Oluştur"))
   )
 end
 
@@ -494,31 +494,19 @@ local function connection_card(conn, state)
           last_ok and badge(tostring(last_lat or "?") .. " ms", "success") or badge("hatali", "muted")
         ) or nil)),
     dom.div({ class = "flex gap-2 flex-wrap" },
-      can_edit and dom.button({
-        type = "button",
-        class = "px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)] min-h-9",
-        onclick = function() open_edit(conn) end,
-      }, "Düzenle") or nil,
-      can_edit and dom.button({
-        type = "button",
-        class = "px-3 py-1.5 text-sm rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] min-h-9 disabled:opacity-50",
-        disabled = testing and "disabled" or nil,
-        ["aria-busy"] = tostring(testing),
-        onclick = function() app.spawn(test_connection, conn.id) end,
-      }, testing and "Test ediliyor..." or "Test et") or nil,
-      can_edit and dom.button({
-        type = "button",
-        class = "px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--bg)] min-h-9",
-        onclick = function() delete_connection(conn) end,
-      }, "Sil") or nil,
-      can_edit and conn.ssh_enabled and not conn.ssh_host_trusted and dom.button({
-        type = "button",
-        class = "px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--warning)] hover:bg-[var(--bg)] min-h-9",
-        onclick = function() app.spawn(_M.trust_host_key, conn.id) end,
-      }, "SSH anahtarını onayla") or nil,
+      can_edit and icons.button({ icon = "edit", label = "Düzenle", variant = "secondary",
+        title = "Bağlantıyı düzenle", onclick = function() open_edit(conn) end }) or nil,
+      can_edit and icons.button({ icon = testing and "clock" or "zap", label = testing and "Test ediliyor..." or "Test et",
+        variant = "secondary", disabled = testing and true or nil, title = "Bağlantıyı test et",
+        onclick = function() app.spawn(test_connection, conn.id) end }) or nil,
+      can_edit and icons.button({ icon = "trash", label = "Sil", variant = "danger",
+        title = "Bağlantıyı sil", onclick = function() delete_connection(conn) end }) or nil,
+      can_edit and conn.ssh_enabled and not conn.ssh_host_trusted and icons.button({
+        icon = "shield", label = "SSH onayla", variant = "secondary",
+        title = "SSH anahtarını onayla", onclick = function() app.spawn(_M.trust_host_key, conn.id) end }) or nil,
       dom.a({ href = "#/query?connection_id=" .. router.urlencode(conn.id),
-        class = "px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)]" },
-        "Sorgu")))
+        class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg)] hover:border-[var(--primary)] transition-colors" },
+        icons.get("terminal", "w-4 h-4"), "Sorgu")))
 end
 
 function _M.render(state, dispatch)
@@ -546,32 +534,29 @@ function _M.render(state, dispatch)
         end)
       end,
     }),
-    app.can("connections.create") and dom.button({
-      type = "button",
-      class = "px-4 py-2 min-h-11 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] whitespace-nowrap",
-      onclick = open_new,
-    }, "+ Yeni bağlantı") or nil)
+    app.can("connections.create") and icons.button({ icon = "plus", label = "+ Yeni bağlantı",
+      variant = "accent", title = "Yeni bağlantı ekle", onclick = open_new }) or nil)
 
   local body, error_body
   if st.status == "loading" and #st.items == 0 then
     body = require("components.skeleton").lines(6)
   elseif st.status == "error" then
     error_body = dom.div({ class = "p-8 text-center", role = "alert" },
-      dom.p({ class = "text-[var(--danger)] mb-2" }, "Bağlantılar yüklenemedi: "
+      dom.div({ class = "flex justify-center mb-3 text-[var(--danger)]" }, icons.get("alert-triangle", "w-8 h-8")),
+      dom.p({ class = "text-[var(--danger)] mb-3" }, "Bağlantılar yüklenemedi: "
         .. tostring(st.error and st.error.message or st.error and st.error.code or "")),
-      dom.button({ type = "button",
-        class = "px-4 py-2 rounded-[var(--radius)] border border-[var(--border)]", onclick = reload }, "Tekrar dene"))
+      icons.button({ icon = "refresh", label = "Tekrar dene", variant = "secondary", onclick = reload }))
   elseif #st.items == 0 then
     local layout = require("views.layout")
     if search_val ~= "" then
-      body = layout.empty_state({ icon = "🔍", title = "Sonuç yok",
+      body = layout.empty_state({ icon_svg = "search", title = "Sonuç yok",
         text = "Bu filtreyle eşleşen bağlantı yok",
-        action_label = "Filtreyi temizle",
+        action_label = "Filtreyi temizle", action_icon = "eraser",
         on_action = function() set_filters({ search = "" }) end })
     else
-      body = layout.empty_state({ icon = "⎆", title = "Henüz bağlantı yok",
+      body = layout.empty_state({ icon_svg = "plug", title = "Henüz bağlantı yok",
         text = "İlk PostgreSQL bağlantınızı ekleyin",
-        action_label = app.can("connections.create") and "+ Bağlantı ekle" or nil,
+        action_label = app.can("connections.create") and "+ Bağlantı ekle" or nil, action_icon = "plus",
         on_action = open_new })
     end
   else

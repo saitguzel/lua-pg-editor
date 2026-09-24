@@ -148,7 +148,8 @@ function _M.list_history(identity, q)
     limit = q.per_page or 50
     offset = (q.page - 1) * limit
   end
-  local rows, total = query_history_repo.find_by_connection_db(identity.user_id, q.connection_id, q.database, limit, offset)
+  local rows, total = query_history_repo.find_by_connection_db(identity.user_id, q.connection_id, q.database, limit, offset,
+    q.q)
   if not rows then return nil, total end
   local out = {}
   for i, r in ipairs(rows) do out[i] = query_result_model.serialize_history(r) end

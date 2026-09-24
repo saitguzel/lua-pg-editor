@@ -63,6 +63,11 @@ function keyboard.setup(app)
   shortcuts.register("query", "Alt+N", function() qe().new_tab(); return true end, "Yeni sorgu sekmesi (Alt+N)")
   shortcuts.register("query", "Alt+W", function() qe().close_active_tab(); return true end, "Sekmeyi kapat (Alt+W)")
   shortcuts.register("query", "Ctrl+E", function() qe().focus_editor(); return true end, "SQL editörüne odaklan (Ctrl+E)")
+  shortcuts.register("query", "Alt+L", function() return qe().clear_screen() end, "Ekranı temizle (Alt+L)")
+  shortcuts.register("query", "Ctrl+J", function() return qe().open_snippets() end, "Taslak ekle (Ctrl+J)")
+  shortcuts.register("query", "Ctrl+I", function() return qe().toggle_ai() end, "AI ile SQL oluştur (Ctrl+I)")
+  shortcuts.register("query", "Alt+S", function() return qe().save_as_snippet() end,
+    "Seçimi taslak olarak kaydet (Alt+S)")
 
   -- tablo tarayici (codd): Delete odakli satiri siler, Ctrl+R yeniler
   shortcuts.register("browse", "Delete", function()

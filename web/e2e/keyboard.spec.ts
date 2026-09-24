@@ -16,11 +16,21 @@ test.describe("keyboard", () => {
     const u = await create_user(request, "editor");
     await login(page, u.email, u.password);
     const sidebar = page.locator("#sidebar");
-    await expect(sidebar).toBeVisible();
+    await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    const wide = (await sidebar.boundingBox())!.width;
+    const main = page.locator("#main");
+    const mainWide = (await main.boundingBox())!.width;
     await page.keyboard.press("Control+b");
-    await expect(sidebar).toBeHidden();
-    await page.keyboard.press("Control+b");
+    // masaüstünde rail: ikonlar görünür kalır, ana alan genişler
+    await expect(sidebar).toHaveAttribute("data-collapsed", "true");
     await expect(sidebar).toBeVisible();
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeLessThan(wide / 2);
+    await expect.poll(async () => (await main.boundingBox())!.width).toBeGreaterThan(mainWide + 100);
+    // tercih yenilemeden sonra korunur
+    await page.reload();
+    await expect(page.locator("#sidebar")).toHaveAttribute("data-collapsed", "true");
+    await page.keyboard.press("Control+b");
+    await expect(sidebar).toHaveAttribute("data-collapsed", "false");
   });
 
   test("g d / g c / g q navigasyon", async ({ page, request }) => {

@@ -610,6 +610,39 @@ local function init_schemas()
     offset = _M.optional(_M.query_int({ min = 0, default = 0 })),
     page = _M.optional(_M.query_int({ min = 1, default = 1 })),
     per_page = _M.optional(_M.query_int({ min = 1, max = 100, default = 50 })),
+    q = _M.optional(_M.string({ max = 200 })),
+  }, { strict = false })
+
+  -- AI ayarları (yalnızca yönetici): base_url http(s); api_key yalnızca yazılır, geri okunmaz
+  local model_id = _M.string({ min = 1, max = 200 })
+  _M.schemas.ai_settings_update = _M.schema({
+    enabled = _M.optional(_M.boolean()),
+    base_url = _M.optional(_M.string({ max = 300, trim = true, pattern = "^https?:%/%/[^%s]+$" })),
+    api_key = _M.optional(_M.string({ min = 1, max = 500, trim = true })),
+    clear_api_key = _M.optional(_M.boolean()),
+    default_model = _M.optional(model_id),
+    visible = _M.optional(_M.array_of(model_id, { max = 1000 })),
+    excluded = _M.optional(_M.array_of(model_id, { max = 1000 })),
+  }, { strict = true })
+  _M.schemas.ai_model_test = _M.schema({ model = model_id }, { strict = false })
+  _M.schemas.ai_test_all = _M.schema({
+    prune = _M.optional(_M.boolean()),
+    only_visible = _M.optional(_M.boolean()),
+  }, { strict = false })
+  _M.schemas.ai_generate = _M.schema({
+    connection_id = _M.uuid(),
+    database = _M.optional(_M.pg_name()),
+    prompt = _M.string({ min = 1, max = 4000, trim = true }),
+    model = _M.optional(model_id),
+    sql = _M.optional(_M.string({ max = 102400 })),
+  }, { strict = false })
+
+  -- taslak: önek harf/rakam/_ (editörde yazıp Tab ile açılır)
+  _M.schemas.snippet = _M.schema({
+    name = _M.string({ min = 1, max = 100, trim = true }),
+    prefix = _M.optional(_M.nullable(_M.string({ max = 32, trim = true, pattern = "^[%w_]*$" }))),
+    description = _M.optional(_M.nullable(_M.string({ max = 500, trim = true }))),
+    body = _M.string({ min = 1, max = 65536 }),
   }, { strict = false })
 
   _M.schemas.table_rows_query = _M.schema({
@@ -637,6 +670,7 @@ local function init_schemas()
     delimiter = _M.optional(_M.enum({ ",", ";", "\t", "|" })),
     include_header = _M.optional(_M.boolean()),
     limit = _M.optional(_M.integer({ min = 1, max = 50000 })),
+    format = _M.optional(_M.enum({ "csv", "json", "xlsx" })),
   }, { strict = false })
 
   _M.schemas.csv_table_export = _M.schema({
@@ -646,6 +680,7 @@ local function init_schemas()
     filters = _M.optional(_M.string({ max = 5000 })),
     custom_where = _M.optional(_M.safe_sql()),
     database = _M.optional(_M.pg_name()),
+    format = _M.optional(_M.enum({ "csv", "json", "xlsx" })),
   }, { strict = false })
 end
 

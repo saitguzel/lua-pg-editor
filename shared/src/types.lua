@@ -8,7 +8,7 @@ _M.ROLES = { "admin", "editor" }
 _M.PAGES = {
   "dashboard",
   "connections.list", "connections.create",
-  "query.execute", "query.history",
+  "query.execute", "query.history", "query.ai",
   "schema.browser", "table.browser", "table.edit",
   "structure.view", "object.actions", "script.generate", "export.csv",
   "users.list", "users.create", "rbac.matrix", "audit.logs", "settings",
@@ -20,6 +20,7 @@ _M.PAGE_META = {
   ["connections.create"] = { label = "Baglanti Yonetimi", group = "connections" },
   ["query.execute"] = { label = "Sorgu Calistir", group = "query" },
   ["query.history"] = { label = "Sorgu Gecmisi", group = "query" },
+  ["query.ai"] = { label = "AI ile Sorgu Olustur", group = "query" },
   ["schema.browser"] = { label = "Sema Tarayici", group = "browse" },
   ["table.browser"] = { label = "Tablo Tarayici", group = "browse" },
   ["table.edit"] = { label = "Satir Duzenleme", group = "browse" },
@@ -39,7 +40,7 @@ _M.DEFAULT_PERMISSIONS = {
   editor = {
     dashboard = true,
     ["connections.list"] = true, ["connections.create"] = true,
-    ["query.execute"] = true, ["query.history"] = true,
+    ["query.execute"] = true, ["query.history"] = true, ["query.ai"] = true,
     ["schema.browser"] = true, ["table.browser"] = true, ["table.edit"] = true,
     ["structure.view"] = true, ["script.generate"] = true, ["export.csv"] = true,
   },
@@ -54,7 +55,9 @@ _M.AUDIT_ACTIONS = {
   "query.execute", "query.export.csv",
   "table.row.create", "table.row.update", "table.row.delete", "table.row.duplicate",
   "object.rename", "object.truncate", "object.drop", "script.generate",
-  "structure.rename", "structure.drop",
+  "structure.rename", "structure.drop", "object.trigger.toggle",
+  "snippet.create", "snippet.update", "snippet.delete",
+  "ai.settings.update", "ai.models.test", "ai.generate",
   "user.create", "user.update", "user.delete",
   "rbac.matrix.update", "access.denied",
 }

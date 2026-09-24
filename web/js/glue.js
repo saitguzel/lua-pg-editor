@@ -31,21 +31,69 @@ async function ensureCodeMirrorLang() {
   return _lang;
 }
 
-// Backend kataloğu { schemas: [{ name, tables: [{ name, columns: [{ name }] }] }] } → lang-sql namespace
+// Backend kataloğu { schemas: [{ name, tables: [{ name, columns: [{ name, type }] }], routines, triggers }] }
+// → lang-sql namespace (kolon önerisinde tip "detail" olarak görünür). Boş Lua tablosu JSON'da {} gelebilir.
+const arr = (v) => (Array.isArray(v) ? v : []);
 function sqlNamespace(catalog) {
   const ns = {};
-  for (const s of catalog?.schemas || []) {
+  for (const s of arr(catalog?.schemas)) {
     const tables = (ns[s.name] = {});
-    for (const tb of s.tables || []) tables[tb.name] = (tb.columns || []).map((c) => c?.name ?? String(c));
+    for (const tb of arr(s.tables)) {
+      tables[tb.name] = arr(tb.columns).map((c) =>
+        typeof c === "string" ? c : { label: c.name, type: "property", detail: c.type || "" });
+    }
   }
   return ns;
 }
 
-// Editör dil+autocomplete+renk eklentileri (lang yüklüyse); katalog değişince yeniden kurulur
-function languageExtensions(catalog) {
+// PostgreSQL yerleşik fonksiyonları (sık kullanılanlar); kullanıcı fonksiyonları katalogdan gelir
+const PG_FUNCTIONS = ("abs avg array_agg array_append array_length array_position array_remove array_to_string"
+  + " bool_and bool_or btrim ceil char_length coalesce concat concat_ws count cume_dist current_date current_setting"
+  + " current_time current_timestamp current_user date_part date_trunc decode dense_rank encode exists extract"
+  + " first_value floor format gen_random_uuid generate_series greatest initcap jsonb_agg jsonb_array_elements"
+  + " jsonb_array_length jsonb_build_array jsonb_build_object jsonb_each jsonb_each_text jsonb_extract_path_text"
+  + " jsonb_object_agg jsonb_object_keys jsonb_path_query jsonb_pretty jsonb_set jsonb_strip_nulls jsonb_typeof"
+  + " json_agg json_build_object lag last_value lead least left length localtimestamp lower lpad ltrim make_date"
+  + " make_interval make_timestamp max md5 min mod now nth_value ntile nullif percent_rank percentile_cont"
+  + " pg_size_pretty pg_total_relation_size position power random rank regexp_match regexp_matches regexp_replace"
+  + " regexp_split_to_array regexp_split_to_table repeat replace reverse right round row_number row_to_json rpad"
+  + " rtrim session_user sign split_part sqrt starts_with statement_timestamp stddev string_agg string_to_array"
+  + " strpos substr substring sum to_char to_date to_json to_jsonb to_number to_timestamp translate trim trunc"
+  + " unnest upper uuid_generate_v4 variance").split(" ");
+
+// fonksiyon adı + "(" önerir: kullanıcı fonksiyonları (imza/dönüş tipi) + yerleşikler
+function functionOptions(catalog) {
+  const opts = [];
+  for (const s of arr(catalog?.schemas)) {
+    for (const r of arr(s.routines)) {
+      const qualified = s.name === "public" ? r.name : `${s.name}.${r.name}`;
+      opts.push({ label: qualified, type: r.kind === "procedure" ? "method" : "function", boost: 2,
+        detail: `(${r.args || ""})${r.returns ? " → " + r.returns : ""}`, apply: `${qualified}(`,
+        info: `${r.kind === "procedure" ? "Prosedür" : "Fonksiyon"} · ${r.language || ""}` });
+    }
+  }
+  for (const f of PG_FUNCTIONS) opts.push({ label: f, type: "function", apply: `${f}(`, detail: "pg" });
+  return opts;
+}
+
+// Editör dil+autocomplete+renk eklentileri (lang yüklüyse); katalog/taslak değişince yeniden kurulur.
+// snippets: [{ name, prefix, body }] — önek yazılıp Tab/Enter ile açılır, ${ad} alanları Tab ile gezilir
+function languageExtensions(catalog, snippets) {
   const { sqlMod, autoMod, highlight } = _lang;
+  const dialect = sqlMod.PostgreSQL;
+  const fnOptions = functionOptions(catalog);
+  const wordSource = (options) => (ctx) => {
+    const word = ctx.matchBefore(/[\w$.]+/);
+    if (!word || (word.from === word.to && !ctx.explicit)) return null;
+    return { from: word.from, options, validFor: /^[\w$.]*$/ };
+  };
+  const snippetOptions = arr(snippets).filter((sn) => sn.prefix).map((sn) =>
+    autoMod.snippetCompletion(sn.body, { label: sn.prefix, detail: sn.name, type: "text", boost: 3,
+      info: "Taslak (Tab ile alanlar arasında gezinin)" }));
   return [
-    sqlMod.sql({ dialect: sqlMod.PostgreSQL, schema: sqlNamespace(catalog), defaultSchema: "public", upperCaseKeywords: true }),
+    sqlMod.sql({ dialect, schema: sqlNamespace(catalog), defaultSchema: "public", upperCaseKeywords: true }),
+    dialect.language.data.of({ autocomplete: wordSource(fnOptions) }),
+    dialect.language.data.of({ autocomplete: wordSource(snippetOptions) }),
     autoMod.autocompletion({ activateOnTyping: true, maxRenderedOptions: 200 }),
     highlight,
   ];
@@ -82,6 +130,55 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   const main = document.getElementById("main");
   if (main) { main.focus(); main.scrollIntoView(); }
+});
+
+// Sürüklenebilir ayraçlar: [data-splitter="objects-w"] (yatay) / "editor-h" (dikey) kök CSS değişkenini ayarlar;
+// boyutlanan öğe ayraçtan hemen önceki kardeştir. Tamamen JS'te — her pointermove'u Lua'ya taşımak gereksiz.
+const SPLITTERS = { "objects-w": { axis: "x", min: 180, max: 640 }, "editor-h": { axis: "y", min: 180, max: 1200 } };
+for (const name of Object.keys(SPLITTERS)) {
+  let v = null;
+  try { v = localStorage.getItem(`pg.split.${name}`); } catch {}
+  if (v) document.documentElement.style.setProperty(`--${name}`, `${parseInt(v, 10)}px`);
+}
+function setSplit(name, cfg, px) {
+  const val = Math.round(Math.min(cfg.max, Math.max(cfg.min, px)));
+  document.documentElement.style.setProperty(`--${name}`, `${val}px`);
+  document.querySelectorAll(`[data-splitter="${name}"]`).forEach((el) => el.setAttribute("aria-valuenow", String(val)));
+  return val;
+}
+function saveSplit(name, val) { try { localStorage.setItem(`pg.split.${name}`, String(val)); } catch {} }
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest?.("[data-splitter]");
+  const cfg = el && SPLITTERS[el.dataset.splitter];
+  if (!cfg || !el.previousElementSibling) return;
+  e.preventDefault();
+  const name = el.dataset.splitter;
+  const start = cfg.axis === "x" ? e.clientX : e.clientY;
+  const rect = el.previousElementSibling.getBoundingClientRect();
+  const base = cfg.axis === "x" ? rect.width : rect.height;
+  let val = base;
+  el.classList.add("dragging");
+  el.setPointerCapture(e.pointerId);
+  const move = (ev) => { val = setSplit(name, cfg, base + (cfg.axis === "x" ? ev.clientX : ev.clientY) - start); };
+  const up = () => {
+    el.classList.remove("dragging");
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", up);
+    saveSplit(name, val);
+  };
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", up);
+});
+// klavye erişimi: odaktaki ayraç ok tuşlarıyla 16px oynar
+document.addEventListener("keydown", (e) => {
+  const el = e.target.closest?.("[data-splitter]");
+  const cfg = el && SPLITTERS[el.dataset.splitter];
+  const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+  if (!cfg || !dir || !el.previousElementSibling) return;
+  e.preventDefault();
+  const rect = el.previousElementSibling.getBoundingClientRect();
+  const cur = cfg.axis === "x" ? rect.width : rect.height;
+  saveSplit(el.dataset.splitter, setSplit(el.dataset.splitter, cfg, cur + dir * 16));
 });
 
 // Lua'ya yalnızca ihtiyaç duyulan event alanları düz nesne olarak geçer
@@ -126,9 +223,13 @@ function mountBundle(url) {
   return loadedBundles.get(url);
 }
 
+const SVG_TAGS = new Set(["svg", "path"]);
+
 const bridge = {
   dom: {
-    create: (tag) => handle(document.createElement(tag)),
+    // svg/path SVG ad alanında oluşturulmalı; yoksa tarayıcı çizmez (icons.lua)
+    create: (tag) => handle(SVG_TAGS.has(tag)
+      ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag)),
     text: (s) => handle(document.createTextNode(s)),
     byId: (id) => { const n = document.getElementById(id); return n ? handle(n) : null; },
     setAttr: (h, k, v) => get(h)?.setAttribute(k, v),
@@ -297,15 +398,19 @@ const bridge = {
           extensions: [
             lineNumbers(), highlightActiveLineGutter(), highlightActiveLine(), drawSelection(), cmHistory(),
             EditorState.tabSize.of(4),
-            langCompartment.of(_lang ? languageExtensions(opts.schema) : []),
+            langCompartment.of(_lang ? languageExtensions(opts.schema, opts.snippets) : []),
             EditorView.lineWrapping,
             editorTheme,
             // erişilebilirlik: CodeMirror content textbox'ına erişilebilir ad (aria-input-field-name)
             EditorView.contentAttributes.of({ "aria-label": opts.ariaLabel || "SQL sorgusu" }),
             keymap.of([
               { key: "Mod-Enter", run: () => { cb("onRun", view.state.doc.toString()); return true; } },
+              // Ctrl+I: varsayılan keymap'teki "üst düğümü seç" yerine AI çubuğu (callback yoksa varsayılana düşer)
+              { key: "Mod-i", run: () => { const c = editorCallbacks.get(view._handleId); if (!c?.onAi) return false; cb("onAi"); return true; } },
               // codd: Tab 4 boşluk ekler (Esc ardından Tab odağı editörden çıkarır — CodeMirror tab focus mode)
-              { key: "Tab", run: (v) => { v.dispatch(v.state.replaceSelection("    ")); return true; } },
+              // öneri listesi açıksa Tab seçer (taslak önekleri), değilse 4 boşluk
+              { key: "Tab", run: (v) => (_lang && _lang.autoMod.acceptCompletion(v))
+                || (v.dispatch(v.state.replaceSelection("    ")), true) },
               ...historyKeymap, ...defaultKeymap,
             ]),
             EditorView.updateListener.of((u) => {
@@ -320,12 +425,13 @@ const bridge = {
       view._handleId = h;
       view._langCompartment = langCompartment;
       view._catalog = opts.schema || null;
+      view._snippets = opts.snippets || [];
       editors.set(h, view);
       editorCallbacks.set(h, {});
       if (!_lang) {
         ensureCodeMirrorLang().then(() => {
           if (!view.dom.isConnected && !editors.has(h)) return;
-          view.dispatch({ effects: langCompartment.reconfigure(languageExtensions(view._catalog)) });
+          view.dispatch({ effects: langCompartment.reconfigure(languageExtensions(view._catalog, view._snippets)) });
         }).catch((e) => console.error("[editor] lazy lang:", e));
       }
       return h;
@@ -353,7 +459,32 @@ const bridge = {
       const view = editors.get(h);
       if (!view) return;
       try { view._catalog = JSON.parse(catalogJson || "{}"); } catch { return; }
-      if (_lang) view.dispatch({ effects: view._langCompartment.reconfigure(languageExtensions(view._catalog)) });
+      if (_lang) view.dispatch({ effects: view._langCompartment.reconfigure(languageExtensions(view._catalog, view._snippets)) });
+    },
+    setSnippets: (h, listJson) => {
+      const view = editors.get(h);
+      if (!view) return;
+      try { view._snippets = JSON.parse(listJson || "[]"); } catch { return; }
+      if (_lang) view.dispatch({ effects: view._langCompartment.reconfigure(languageExtensions(view._catalog, view._snippets)) });
+    },
+    // düz metin: seçim varsa yerine, yoksa (whole=true ise tüm belge, değilse imlece); tek işlem → Ctrl+Z geri alır
+    replaceText: (h, text, whole) => {
+      const view = editors.get(h);
+      if (!view) return;
+      const sel = view.state.selection.main;
+      const range = sel.empty && whole ? { from: 0, to: view.state.doc.length } : { from: sel.from, to: sel.to };
+      view.dispatch({ changes: { ...range, insert: text }, selection: { anchor: range.from + text.length },
+        scrollIntoView: true, userEvent: "input.ai" });
+      view.focus();
+    },
+    // taslağı imlece/seçimin yerine ekler (${ad} alanları seçili gelir); dil yüklenmediyse düz metin
+    insertSnippet: (h, body) => {
+      const view = editors.get(h);
+      if (!view) return;
+      const { from, to } = view.state.selection.main;
+      if (_lang) _lang.autoMod.snippet(body)(view, null, from, to);
+      else view.dispatch(view.state.replaceSelection(body.replace(/\$\{([^}]*)\}/g, "$1")));
+      view.focus();
     },
     // seçili metin (ana seçim); seçim yoksa ""
     getSelection: (h) => {
@@ -365,6 +496,10 @@ const bridge = {
     onSelection: (h, fn) => {
       const cbs = editorCallbacks.get(h);
       if (cbs) cbs.onSelection = fn;
+    },
+    onAi: (h, fn) => {
+      const cbs = editorCallbacks.get(h);
+      if (cbs) cbs.onAi = fn;
     },
     // editör DOM'da mı? (view yeniden çizilip kap değiştiyse Lua yeni editör açar)
     // containerId verilirse editör o kabın içinde olmalı (diff kabı başka sekmeye yeniden kullanmış olabilir)

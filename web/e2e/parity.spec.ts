@@ -302,3 +302,173 @@ test.describe("F11 UX", () => {
     await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
   });
 });
+
+test.describe("Faz 2 fonksiyon / prosedür / trigger", () => {
+  test("listele, overload ayrımı, DDL düzenle, çağrı betiği, trigger kapat, yeniden adlandır, sil, CASCADE, tamamlama", async ({ page }) => {
+    const t = `e2e_r_${Date.now()}`;
+    await open_query(page);
+    const token = await page.evaluate(() => JSON.parse(localStorage.getItem("pg.auth") || "{}").access_token);
+    // testin oluşturduğu nesneler her durumda kaldırılır
+    const cleanup_sql = [`TABLE IF EXISTS ${t} CASCADE`, `FUNCTION IF EXISTS ${t}_fn(int)`, `FUNCTION IF EXISTS ${t}_fn(text)`,
+      `PROCEDURE IF EXISTS ${t}_pr()`, `PROCEDURE IF EXISTS ${t}_pr2()`, `FUNCTION IF EXISTS ${t}_tf() CASCADE`]
+      .map((x) => "DROP " + x).join("; ");
+    cleanups.push(() => page.request.post(`${API}/query/execute`, { headers: { Authorization: `Bearer ${token}` },
+      data: { connection_id: test_conn!.id, sql: cleanup_sql } }));
+    await set_sql(page, `CREATE TABLE ${t}(id int primary key, u timestamptz);
+      CREATE FUNCTION ${t}_fn(a integer) RETURNS integer LANGUAGE sql AS 'SELECT a + 1';
+      CREATE FUNCTION ${t}_fn(a text) RETURNS text LANGUAGE sql AS 'SELECT a';
+      CREATE PROCEDURE ${t}_pr() LANGUAGE sql AS 'SELECT 1';
+      CREATE FUNCTION ${t}_tf() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN NEW.u := now(); RETURN NEW; END';
+      CREATE TRIGGER ${t}_trg BEFORE UPDATE ON ${t} FOR EACH ROW EXECUTE FUNCTION ${t}_tf()`);
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByText("satır etkilendi")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Yenile", exact: true }).first().click();
+
+    const side = page.getByRole("complementary", { name: "Veritabanı nesneleri" });
+    await side.getByLabel("Nesne ara").fill(t);
+    const fnInt = side.getByRole("button", { name: `${t}_fn(a integer) (fonksiyon)` });
+    const fnText = side.getByRole("button", { name: `${t}_fn(a text) (fonksiyon)` });
+    await expect(fnInt).toBeVisible({ timeout: 10_000 });
+    await expect(fnText).toBeVisible();
+    await expect(side.getByRole("button", { name: `${t}_pr() (prosedür)` })).toBeVisible();
+    await expect(side.getByRole("button", { name: `${t}_trg (trigger)` })).toBeVisible();
+
+    // tıkla → düzenlenebilir DDL yeni sekmede
+    await fnInt.click();
+    await expect(page.locator(".cm-content")).toContainText(`CREATE OR REPLACE FUNCTION public.${t}_fn(a integer)`, { timeout: 10_000 });
+
+    // overload'ın çağrı betiği
+    const menu = (name: string) => side.getByRole("button", { name: `${name} menüsü`, exact: true });
+    await menu(`${t}_fn`).last().click();
+    await page.getByRole("menuitem", { name: "SELECT betiği" }).click();
+    await expect(page.locator(".cm-content")).toContainText(`SELECT * FROM "public"."${t}_fn"(`, { timeout: 10_000 });
+    await expect(page.locator(".cm-content")).toContainText("NULL /* a text */");
+
+    // trigger devre dışı → menüde "Etkinleştir"
+    await menu(`${t}_trg`).click();
+    await page.getByRole("menuitem", { name: "Devre dışı bırak" }).click();
+    await expect(page.getByText(/devre dışı bırakıldı/)).toBeVisible({ timeout: 10_000 });
+    await expect(async () => {
+      await menu(`${t}_trg`).click();
+      await expect(page.getByRole("menuitem", { name: "Etkinleştir" })).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await page.keyboard.press("Escape");
+
+    // prosedürü yeniden adlandır
+    await menu(`${t}_pr`).click();
+    await page.getByRole("menuitem", { name: "Yeniden adlandır…" }).click();
+    await page.getByLabel("Yeni ad").fill(`${t}_pr2`);
+    await page.getByRole("dialog").getByRole("button", { name: "Tamam" }).click();
+    await expect(side.getByRole("button", { name: `${t}_pr2() (prosedür)` })).toBeVisible({ timeout: 10_000 });
+
+    // overload'lardan yalnızca biri silinir
+    await menu(`${t}_fn`).first().click();
+    await page.getByRole("menuitem", { name: "Sil…" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Sil" }).click();
+    await expect(fnInt).toHaveCount(0, { timeout: 10_000 });
+    await expect(fnText).toBeVisible();
+
+    // trigger fonksiyonu: bağımlı trigger → CASCADE önerisi
+    await menu(`${t}_tf`).click();
+    await page.getByRole("menuitem", { name: "Sil…" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Sil" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "CASCADE ile sil" }).click();
+    await expect(side.getByRole("button", { name: `${t}_trg (trigger)` })).toHaveCount(0, { timeout: 10_000 });
+
+    // "+" yeni fonksiyon taslağı
+    await side.getByLabel("Nesne ara").fill("");
+    await side.getByRole("button", { name: "Yeni fonksiyon (public)" }).click();
+    await expect(page.locator(".cm-content")).toContainText("CREATE OR REPLACE FUNCTION public.fonksiyon_adi", { timeout: 10_000 });
+
+    // tamamlama: kullanıcı fonksiyonu imzasıyla önerilir
+    await set_sql(page, `SELECT ${t}_f`);
+    await page.keyboard.press("Control+Space");
+    await expect(page.locator(".cm-tooltip-autocomplete")).toContainText(`${t}_fn`, { timeout: 10_000 });
+  });
+});
+
+test.describe("Faz 3 taslaklar ve geçmiş araması", () => {
+  test("hazır taslak Ctrl+J ile eklenir; seçimi kaydet, önek + Tab, düzenle, sil", async ({ page }) => {
+    const p = `e2e${Date.now() % 1_000_000}`;
+    await open_query(page);
+    const token = await page.evaluate(() => JSON.parse(localStorage.getItem("pg.auth") || "{}").access_token);
+    // testin taslakları her durumda silinir
+    cleanups.push(async () => {
+      const list = await (await page.request.get(`${API}/snippets`, { headers: { Authorization: `Bearer ${token}` } })).json();
+      for (const s of list.data || []) {
+        if ((s.name || "").startsWith(p)) {
+          await page.request.delete(`${API}/snippets/${s.id}`, { headers: { Authorization: `Bearer ${token}` } });
+        }
+      }
+    });
+    const dialog = page.getByRole("dialog", { name: "Taslaklar" });
+
+    // hazır taslak: ara + Enter → yer tutucular düz metin olarak eklenir
+    await set_sql(page, "");
+    await page.keyboard.press("Control+j");
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Taslak ara").fill("CREATE PROCEDURE");
+    await page.keyboard.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".cm-content")).toContainText("CREATE OR REPLACE PROCEDURE sema.prosedur_adi");
+
+    // seçimi taslak olarak kaydet (Alt+S): önek ile
+    await set_sql(page, `SELECT 42 AS ${p}_col`);
+    await page.keyboard.press("Alt+s");
+    await dialog.getByLabel("Ad", { exact: true }).fill(`${p} cevap`);
+    await dialog.getByLabel(/Önek/).fill(p);
+    await dialog.getByRole("button", { name: "Kaydet" }).click();
+    await expect(dialog.getByRole("option", { name: `${p} cevap` })).toBeVisible({ timeout: 10_000 });
+    // aynı önek ikinci kez → çakışma hatası
+    await dialog.getByRole("button", { name: "Yeni taslak" }).click();
+    await dialog.getByLabel("Ad", { exact: true }).fill(`${p} ikinci`);
+    await dialog.getByLabel(/Önek/).fill(p);
+    await dialog.getByLabel(/SQL/).fill("SELECT 1");
+    await dialog.getByRole("button", { name: "Kaydet" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("önek");
+    await dialog.getByRole("button", { name: "Vazgeç" }).click();
+    await dialog.getByRole("button", { name: "Kapat", exact: true }).last().click();
+
+    // önek + Tab editörde taslağı açar
+    await set_sql(page, "");
+    await page.keyboard.type(p);
+    await expect(page.locator(".cm-tooltip-autocomplete")).toContainText(p, { timeout: 10_000 });
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".cm-content")).toContainText(`SELECT 42 AS ${p}_col`);
+
+    // düzenle ve sil
+    await page.keyboard.press("Control+j");
+    await dialog.getByLabel("Taslak ara").fill(p);
+    await dialog.getByRole("button", { name: `${p} cevap düzenle` }).click();
+    await dialog.getByLabel("Ad", { exact: true }).fill(`${p} yeni ad`);
+    await dialog.getByRole("button", { name: "Kaydet" }).click();
+    await expect(dialog.getByRole("option", { name: `${p} yeni ad` })).toBeVisible({ timeout: 10_000 });
+    await dialog.getByRole("button", { name: `${p} yeni ad sil` }).click();
+    await page.getByRole("dialog", { name: "Taslak silinsin mi?" }).getByRole("button", { name: "Sil" }).click();
+    await expect(dialog.getByRole("option", { name: `${p} yeni ad` })).toHaveCount(0, { timeout: 10_000 });
+  });
+
+  test("geçmişte arama: popover ve geçmiş sayfası, eşleşme vurgulu", async ({ page }) => {
+    const m = `ara_${Date.now()}`;
+    await open_query(page);
+    for (const sql of [`SELECT 1 AS ${m}`, "SELECT 2 AS baska_kolon"]) {
+      await set_sql(page, sql);
+      await page.keyboard.press("ControlOrMeta+Enter");
+      await expect(page.locator("table").last().locator("thead th").first()).toBeVisible({ timeout: 10_000 });
+    }
+    await page.getByRole("button", { name: "Geçmiş" }).click();
+    const pop = page.getByRole("dialog", { name: "Geçmiş" });
+    await pop.getByLabel("Geçmişte ara").fill(m);
+    await expect(pop.locator("pre")).toHaveCount(1, { timeout: 10_000 });
+    await expect(pop.locator("mark")).toHaveText(m);
+    await pop.getByRole("button", { name: "Tümünü gör" }).click();
+    await expect(page).toHaveURL(/query\/history/);
+    const search = page.getByLabel("Geçmişte ara");
+    await expect(search).toHaveValue(m);
+    await expect(page.locator("main li pre")).toHaveCount(1, { timeout: 10_000 });
+    await search.fill("yok_boyle_bir_sey_xyz");
+    await expect(page.getByText("Eşleşme yok")).toBeVisible({ timeout: 10_000 });
+    await search.fill("");
+    await expect.poll(async () => page.locator("main li pre").count(), { timeout: 10_000 }).toBeGreaterThan(1);
+  });
+});

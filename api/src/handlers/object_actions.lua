@@ -96,4 +96,70 @@ function _M.structure_drop(self)
   return { status = 200, json = { data = res } }
 end
 
+-- Fonksiyon / prosedür / trigger: /connections/:id/routines/:kind/:oid[...]
+local routines = require("db.target.routines")
+local SCRIPT_TYPES = { ddl = true, execute = true, drop = true }
+
+local function routine_params(self, kinds)
+  local id, err = get_id(self)
+  if not id then return nil, err end
+  local kind, oid = self.params.kind, self.params.oid
+  if not (kinds or routines.KINDS)[kind] then
+    return nil, errors.new("VALIDATION_FAILED", "gecersiz kind", { kind = { "function|procedure|trigger" } })
+  end
+  -- oid: 32 bit işaretsiz tam sayı
+  if type(oid) ~= "string" or not oid:match("^%d+$") or #oid > 10 or tonumber(oid) > 4294967295 then
+    return nil, errors.new("OBJECT_NOT_FOUND", "Obje bulunamadi")
+  end
+  local args = ngx.req.get_uri_args()
+  return id, { kind = kind, oid = tonumber(oid), database = args.database,
+    cascade = args.cascade == "true" or args.cascade == "1", args = args }
+end
+
+function _M.routine_script(self)
+  local id, p = routine_params(self)
+  if not id then return errors.respond(p) end
+  local t = p.args.type or "ddl"
+  if not SCRIPT_TYPES[t] then
+    return errors.respond(errors.new("VALIDATION_FAILED", "gecersiz type", { type = { "ddl|execute|drop" } }))
+  end
+  local sql, serr = object_actions_service.routine_script(ngx.ctx.identity, id, p.kind, p.oid, t, p.database)
+  if not sql then return errors.respond(serr) end
+  return { status = 200, json = { data = { sql = sql, kind = p.kind, type = t } } }
+end
+
+function _M.routine_drop(self)
+  local id, p = routine_params(self)
+  if not id then return errors.respond(p) end
+  local res, serr = object_actions_service.routine_drop(ngx.ctx.identity, id, p.kind, p.oid, p.cascade, p.database)
+  if not res then return errors.respond(serr) end
+  return { status = 200, json = { data = res } }
+end
+
+function _M.routine_rename(self)
+  local id, p = routine_params(self)
+  if not id then return errors.respond(p) end
+  local body, berr = errors.read_json_body()
+  if not body then return errors.respond(berr) end
+  local clean, ve = validation.validate(validation.schemas.object_rename, body)
+  if not clean then return errors.respond(errors.validation(ve)) end
+  local res, serr = object_actions_service.routine_rename(ngx.ctx.identity, id, p.kind, p.oid, clean.new_name,
+    p.database)
+  if not res then return errors.respond(serr) end
+  return { status = 200, json = { data = res } }
+end
+
+function _M.trigger_toggle(self)
+  local id, p = routine_params(self, { trigger = true })
+  if not id then return errors.respond(p) end
+  local body, berr = errors.read_json_body()
+  if not body then return errors.respond(berr) end
+  if type(body.enabled) ~= "boolean" then
+    return errors.respond(errors.new("VALIDATION_FAILED", "enabled boolean olmali", { enabled = { "boolean" } }))
+  end
+  local res, serr = object_actions_service.trigger_set_enabled(ngx.ctx.identity, id, p.oid, body.enabled, p.database)
+  if not res then return errors.respond(serr) end
+  return { status = 200, json = { data = res } }
+end
+
 return _M

@@ -7,6 +7,7 @@ _M.SENSITIVE_KEYS = {
   token_hash = true, refresh_token = true, access_token = true, secret = true,
   password_encrypted = true, pg_password = true, pg_password_encrypted = true,
   ssh_password = true, ssh_key_passphrase = true,
+  api_key = true, api_key_encrypted = true,
 }
 _M.MASK = "***"
 _M.MAX_DEPTH = 10

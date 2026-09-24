@@ -26,9 +26,13 @@ local function filtered_connections(q)
 end
 
 local function filtered_tables(q)
-  -- objects listesi state.objects.items olabilir; yoksa bos
+  -- sorgu/nesne kenar çubuğunun yüklediği katalog (state.query.completion) düz listeye çevrilir
   local st = app.get_state()
-  local objs = st.objects and st.objects.items or {}
+  local objs = {}
+  local catalog = st.query and st.query.completion
+  for _, sch in ipairs(catalog and catalog.schemas or {}) do
+    for _, t in ipairs(sch.tables or {}) do objs[#objs + 1] = { schema = sch.name, name = t.name } end
+  end
   if not q or q == "" then
     -- ilk 20'yi goster
     local out = {}
@@ -82,7 +86,9 @@ local function navigate_table(obj)
   local st = app.get_state()
   local cur = router.current()
   local q = cur and cur.query or {}
-  local conn_id = q.connection_id or (st.connections.items[1] and st.connections.items[1].id) or ""
+  local tab = st.query and st.query.tabs[st.query.active_tab]
+  local conn_id = q.connection_id or (tab and tab.connection_id)
+    or (st.connections.items[1] and st.connections.items[1].id) or ""
   local schema = obj.schema or "public"
   local name = obj.name or obj.table_name or ""
   if name ~= "" then

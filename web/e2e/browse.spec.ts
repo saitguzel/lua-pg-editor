@@ -95,9 +95,9 @@ test.describe("browse (codd tablo tarayıcı)", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Sil" }).click();
     await expect(page.getByText("/ 119 satır")).toBeVisible();
     // CSV
-    await page.getByRole("button", { name: "CSV" }).click();
+    await page.getByRole("button", { name: "Dışa aktar" }).click();
     await page.getByLabel("Ayraç").selectOption(";");
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Dışa aktar" }).click()]);
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "İndir" }).click()]);
     expect(dl.suggestedFilename()).toBe(`${t}.csv`);
     await cleanup();
   });

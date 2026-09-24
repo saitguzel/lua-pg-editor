@@ -30,6 +30,34 @@ local function to_csv(cols, rows, delimiter, include_header)
   return table.concat(buf)
 end
 
+-- JSON: nesne dizisi, anahtarlar kolon sırasında (cjson nesne sırasını korumaz → elle birleştirilir)
+local function to_json(cols, rows)
+  local keys = {}
+  for j, c in ipairs(cols) do keys[j] = cjson.encode(tostring(c)) end
+  local buf = {}
+  for i, r in ipairs(rows) do
+    local parts = {}
+    for j = 1, #cols do
+      local v = r[j]
+      if v == nil or v == ngx.null then v = cjson.null end
+      parts[j] = keys[j] .. ":" .. (cjson.encode(v) or "null")
+    end
+    buf[i] = "{" .. table.concat(parts, ",") .. "}"
+  end
+  return "[" .. table.concat(buf, ",\n") .. "]\n"
+end
+
+-- format: "csv" (varsayılan) | "json" | "xlsx"
+function _M.render(cols, rows, opts)
+  opts = opts or {}
+  if opts.format == "json" then return to_json(cols, rows) end
+  if opts.format == "xlsx" then
+    return require("db.target.xlsx").build(cols, rows, { include_header = opts.include_header,
+      sheet_name = opts.sheet_name })
+  end
+  return to_csv(cols, rows, opts.delimiter or ",", opts.include_header)
+end
+
 -- Sorguyu salt-okunur islemde calistirip CSV uret (header dahil)
 function _M.export_query(pg, sql, opts)
   opts = opts or {}
@@ -43,7 +71,8 @@ function _M.export_query(pg, sql, opts)
   pg:query("ROLLBACK")
   if not res then return nil, err end
   local cols = res.columns or {}
-  return to_csv(cols, res.rows or {}, delimiter, opts.include_header),
+  return _M.render(cols, res.rows or {}, { format = opts.format, delimiter = delimiter,
+      include_header = opts.include_header, sheet_name = opts.sheet_name }),
     { truncated = res.truncated, rows = #(res.rows or {}), columns = cols }
 end
 
@@ -79,7 +108,8 @@ function _M.export_table(pg, schema, table_name, opts)
     for j, c in ipairs(cols) do row[j] = r[c] end
     rows[i] = row
   end
-  return to_csv(cols, rows, delimiter, opts.include_header),
+  return _M.render(cols, rows, { format = opts.format, delimiter = delimiter,
+      include_header = opts.include_header, sheet_name = table_name }),
     { truncated = #res > limit, rows = #rows, columns = cols }
 end
 

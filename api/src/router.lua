@@ -119,6 +119,24 @@ _M.ROUTES = {
   { method = "POST", path = "/connections/:id/objects/:schema/:name/structure/:kind/:item/rename", handler = "handlers.object_actions#structure_rename", auth = true, page = "object.actions", name = "structure_item_rename" },
   { method = "DELETE", path = "/connections/:id/objects/:schema/:name/structure/:kind/:item", handler = "handlers.object_actions#structure_drop", auth = true, page = "object.actions", name = "structure_item_drop" },
   { method = "GET", path = "/connections/:id/objects/:schema/:name/script", handler = "handlers.script#generate", auth = true, page = "script.generate", name = "script_generate" },
+  -- AI ile SQL: yönetici ayarları (settings) ve sorgu ekranı (query.ai)
+  { method = "GET", path = "/admin/ai/settings", handler = "handlers.ai#get_settings", auth = true, page = "settings", name = "ai_settings_get" },
+  { method = "PUT", path = "/admin/ai/settings", handler = "handlers.ai#update_settings", auth = true, page = "settings", name = "ai_settings_update" },
+  { method = "POST", path = "/admin/ai/models/refresh", handler = "handlers.ai#refresh_models", auth = true, page = "settings", name = "ai_models_refresh" },
+  { method = "POST", path = "/admin/ai/models/test", handler = "handlers.ai#test_model", auth = true, page = "settings", name = "ai_models_test" },
+  { method = "POST", path = "/admin/ai/models/test-all", handler = "handlers.ai#test_all", auth = true, page = "settings", name = "ai_models_test_all" },
+  { method = "GET", path = "/ai/status", handler = "handlers.ai#status", auth = true, page = "query.ai", name = "ai_status" },
+  { method = "POST", path = "/ai/generate", handler = "handlers.ai#generate", auth = true, page = "query.ai", name = "ai_generate" },
+  -- taslaklar (kullanıcıya özel; sorgu çalıştırabilen kullanabilir)
+  { method = "GET", path = "/snippets", handler = "handlers.snippets#list", auth = true, page = "query.execute", name = "snippets_list" },
+  { method = "POST", path = "/snippets", handler = "handlers.snippets#create", auth = true, page = "query.execute", name = "snippets_create" },
+  { method = "PUT", path = "/snippets/:id", handler = "handlers.snippets#update", auth = true, page = "query.execute", name = "snippets_update" },
+  { method = "DELETE", path = "/snippets/:id", handler = "handlers.snippets#delete", auth = true, page = "query.execute", name = "snippets_delete" },
+  -- fonksiyon / prosedür / trigger (oid ile; overload'lar ayrışır)
+  { method = "GET", path = "/connections/:id/routines/:kind/:oid/script", handler = "handlers.object_actions#routine_script", auth = true, page = "script.generate", name = "routine_script" },
+  { method = "DELETE", path = "/connections/:id/routines/:kind/:oid", handler = "handlers.object_actions#routine_drop", auth = true, page = "object.actions", name = "routine_drop" },
+  { method = "POST", path = "/connections/:id/routines/:kind/:oid/rename", handler = "handlers.object_actions#routine_rename", auth = true, page = "object.actions", name = "routine_rename" },
+  { method = "POST", path = "/connections/:id/routines/:kind/:oid/enabled", handler = "handlers.object_actions#trigger_toggle", auth = true, page = "object.actions", name = "trigger_toggle" },
   { method = "POST", path = "/query/csv", handler = "handlers.export#query_csv", auth = true, page = "export.csv", name = "export_query_csv" },
   { method = "POST", path = "/connections/:id/objects/:schema/:table/export", handler = "handlers.export#table_csv", auth = true, page = "export.csv", name = "export_table_csv" },
   -- users & RBAC (F11)

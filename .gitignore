@@ -28,3 +28,6 @@ deploy/proxy/certs/*.key
 api/bench/results/
 web/public/index.html
 web/luacov.*
+
+# yerel sırlar (NVIDIA API anahtarı vb.)
+api-key.txt

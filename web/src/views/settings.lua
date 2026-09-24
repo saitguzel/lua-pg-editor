@@ -15,7 +15,8 @@ end
 
 local ROW_LIMITS = { 100, 1000, 5000, 50000 }
 
-function _M.enter() end
+-- yönetici: AI kartı verisi (izin yoksa ai_settings hiçbir şey yapmaz)
+function _M.enter() require("views.ai_settings").load() end
 function _M.mounted() end
 
 function _M.render(state, dispatch)
@@ -48,7 +49,7 @@ function _M.render(state, dispatch)
     row_opts[#row_opts + 1] = dom.option({ value = tostring(v), selected = row_limit == v and "selected" or nil }, tostring(v))
   end
 
-  return dom.div({ class = "max-w-2xl space-y-6" },
+  return dom.div({ class = "max-w-4xl space-y-6" },
     dom.h1({ class = "text-2xl font-bold", tabindex = "-1" }, "Ayarlar"),
     dom.section({ class = "space-y-3 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
       dom.h2({ class = "font-semibold" }, "Tema"),
@@ -93,6 +94,7 @@ function _M.render(state, dispatch)
             js.dom.setRootAttr("data-density", compact and "compact" or "comfortable")
           end }),
         "Sıkı görünüm (compact mode) — tablolarda daha fazla satır")),
+    require("views.ai_settings").render(),
     dom.section({ class = "p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]" },
       dom.h2({ class = "font-semibold mb-2" }, "Sistem"),
       dom.dl({ class = "grid grid-cols-[10rem_1fr] gap-y-1 text-sm" },

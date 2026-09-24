@@ -45,7 +45,7 @@ function _M.stream_query_csv(ngx, identity, input)
   local max_rows = cfg and cfg.csv and cfg.csv.max_rows or 100000
   -- pgmoon streaming: biz toplu alip ngx.print ile parca parca gonderiyoruz
   local limit = math.max(1, math.min(tonumber(input.limit) or max_rows, max_rows))
-  local csv_data, meta = target_csv.export_query(pg, input.sql, { delimiter=input.delimiter, include_header=input.include_header, limit=limit })
+  local csv_data, meta = target_csv.export_query(pg, input.sql, { delimiter=input.delimiter, include_header=input.include_header, limit=limit, format=input.format })
   -- export_query kendi icinde BEGIN READ ONLY/ROLLBACK yapti, release
   pool_manager.release(cid, pg, csv_data==nil)
   if not csv_data then
@@ -53,7 +53,7 @@ function _M.stream_query_csv(ngx, identity, input)
     return nil, errors.new("QUERY_FAILED", "CSV olusturulamadi", { db_message=tostring(meta) })
   end
   -- header'lar handler'da ayarlanacak; burada sadece veri ve audit
-  audit_service.record("query.export.csv", { entity_type="query", entity_id=input.connection_id, new_value={ connection_id=input.connection_id, database=database, rows=meta.rows, truncated=meta.truncated, format="csv" } })
+  audit_service.record("query.export.csv", { entity_type="query", entity_id=input.connection_id, new_value={ connection_id=input.connection_id, database=database, rows=meta.rows, truncated=meta.truncated, format=input.format or "csv" } })
   return csv_data, meta
 end
 
@@ -85,14 +85,14 @@ function _M.stream_table_csv(ngx, identity, connection_id, schema, table_name, o
     if tmeta.by_name[name] then order_by = '"' .. name:gsub('"', '""') .. '"' .. (desc and " DESC" or " ASC") end
   end
   local csv_data, meta = target_csv.export_table(pg, schema, table_name, { delimiter=opts.delimiter, include_header=opts.include_header,
-    filters=filters, custom_where=opts.custom_where, columns=opts.columns, order_by=order_by, limit=math.max(1, math.min(tonumber(opts.limit) or max_rows, max_rows)) })
+    filters=filters, custom_where=opts.custom_where, columns=opts.columns, order_by=order_by, format=opts.format, limit=math.max(1, math.min(tonumber(opts.limit) or max_rows, max_rows)) })
   -- export_table BEGIN/ROLLBACK icerir, ama disarda acquire edilmis pg'yi release et
   pool_manager.release(cid, pg, csv_data==nil)
   if not csv_data then
     if type(meta)=="table" and meta.__app_error then return nil, meta end
     return nil, errors.new("QUERY_FAILED", "CSV olusturulamadi", { db_message=tostring(meta) })
   end
-  audit_service.record("query.export.csv", { entity_type="query", entity_id=connection_id, new_value={ connection_id=connection_id, schema=schema, table=table_name, rows=meta.rows, format="csv" } })
+  audit_service.record("query.export.csv", { entity_type="query", entity_id=connection_id, new_value={ connection_id=connection_id, schema=schema, table=table_name, rows=meta.rows, format=opts.format or "csv" } })
   return csv_data, meta
 end
 

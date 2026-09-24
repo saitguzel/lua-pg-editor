@@ -587,6 +587,7 @@ local function paths()
       parameters = {
         { name = "connection_id", ["in"] = "query", required = false, description = "Yoksa tum baglantilarin gecmisi", schema = ref("Uuid") },
         qp("DatabaseQuery"), qp("Page"), qp("PerPage"),
+        { name = "q", ["in"] = "query", required = false, description = "SQL metninde arama (buyuk/kucuk harf duyarsiz)", schema = { type = "string", maxLength = 200 } },
       },
       responses = { ["200"] = resp("Gecmis", page_of("QueryHistory")) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED" },
@@ -657,6 +658,122 @@ local function paths()
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED", "QUERY_FAILED" },
     }),
   }
+  -- AI ile SQL
+  local ai_obj = data_of({ type = "object" })
+  local function ai_op(o)
+    o.tags = { "ai" }
+    o.responses = o.responses or { ["200"] = resp("Tamam", ai_obj) }
+    return op(o)
+  end
+  local ai_admin_errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "AI_NOT_CONFIGURED", "AI_PROVIDER_ERROR", "AI_TIMEOUT" }
+  p["/admin/ai/settings"] = {
+    get = ai_op({ operationId = "getAiSettings", summary = "AI ayarlari (anahtar yalnizca son 4 karakter)", ["x-page-key"] = "settings",
+      errors = { "UNAUTHORIZED", "FORBIDDEN" } }),
+    put = ai_op({ operationId = "updateAiSettings", summary = "AI ayarlarini guncelle", ["x-page-key"] = "settings",
+      requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", properties = {
+        enabled = { type = "boolean" }, base_url = { type = "string", format = "uri" }, api_key = { type = "string", writeOnly = true },
+        clear_api_key = { type = "boolean" }, default_model = { type = "string" },
+        visible = { type = "array", items = { type = "string" } }, excluded = { type = "array", items = { type = "string" } } } } } } },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED" } }),
+  }
+  p["/admin/ai/models/refresh"] = { post = ai_op({ operationId = "refreshAiModels", summary = "Saglayicidan model listesini yenile",
+    ["x-page-key"] = "settings", errors = ai_admin_errors }) }
+  p["/admin/ai/models/test"] = { post = ai_op({ operationId = "testAiModel", summary = "Tek modeli test et", ["x-page-key"] = "settings",
+    requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "model" },
+      properties = { model = { type = "string" } } } } } },
+    errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "NOT_FOUND", "AI_NOT_CONFIGURED" } }) }
+  p["/admin/ai/models/test-all"] = { post = ai_op({ operationId = "testAllAiModels",
+    summary = "Tum modelleri arka planda paralel test et (prune=true: calismayanlari listeden kaldir)", ["x-page-key"] = "settings",
+    requestBody = { required = false, content = { ["application/json"] = { schema = { type = "object", properties = {
+      prune = { type = "boolean" }, only_visible = { type = "boolean" } } } } } },
+    responses = { ["202"] = resp("Is baslatildi", ai_obj) },
+    errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONFLICT", "AI_NOT_CONFIGURED" } }) }
+  p["/ai/status"] = { get = ai_op({ operationId = "aiStatus", summary = "Sorgu ekrani icin AI durumu ve gorunur modeller",
+    ["x-page-key"] = "query.ai", errors = { "UNAUTHORIZED", "FORBIDDEN" } }) }
+  p["/ai/generate"] = { post = ai_op({ operationId = "aiGenerate", summary = "Dogal dilden SQL uret / secili SQL'i guncelle (calistirmaz)",
+    ["x-page-key"] = "query.ai",
+    requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "connection_id", "prompt" },
+      properties = { connection_id = ref("Uuid"), database = { type = "string" }, prompt = { type = "string", maxLength = 4000 },
+        model = { type = "string", description = "auto ya da gorunur model" }, sql = { type = "string" } } } } } },
+    errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONNECTION_NOT_FOUND", "RATE_LIMITED",
+      "AI_DISABLED", "AI_NOT_CONFIGURED", "AI_PROVIDER_ERROR", "AI_TIMEOUT" } }) }
+  -- taslaklar
+  local snippet_schema = { type = "object", required = { "name", "body" }, properties = {
+    name = { type = "string", maxLength = 100 }, prefix = { type = { "string", "null" }, maxLength = 32, pattern = "^[A-Za-z0-9_]*$" },
+    description = { type = { "string", "null" }, maxLength = 500 }, body = { type = "string", maxLength = 65536 } } }
+  local snippet_body = { required = true, content = { ["application/json"] = { schema = snippet_schema } } }
+  p["/snippets"] = {
+    get = op({
+      tags = { "snippets" }, operationId = "listSnippets", summary = "Kullanicinin taslaklari", ["x-page-key"] = "query.execute",
+      responses = { ["200"] = resp("Taslaklar", data_of({ type = "array", items = { type = "object" } })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN" },
+    }),
+    post = op({
+      tags = { "snippets" }, operationId = "createSnippet", summary = "Taslak olustur", ["x-page-key"] = "query.execute",
+      requestBody = snippet_body,
+      responses = { ["201"] = resp("Olusturuldu", data_of({ type = "object" })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONFLICT" },
+    }),
+  }
+  p["/snippets/{id}"] = {
+    parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
+    put = op({
+      tags = { "snippets" }, operationId = "updateSnippet", summary = "Taslak guncelle", ["x-page-key"] = "query.execute",
+      requestBody = snippet_body,
+      responses = { ["200"] = resp("Guncellendi", data_of({ type = "object" })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "NOT_FOUND", "CONFLICT" },
+    }),
+    delete = op({
+      tags = { "snippets" }, operationId = "deleteSnippet", summary = "Taslak sil", ["x-page-key"] = "query.execute",
+      responses = { ["204"] = { description = "Silindi" } },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND" },
+    }),
+  }
+  -- fonksiyon / prosedür / trigger (oid ile)
+  local routine_params = { { ["$ref"] = "#/components/parameters/IdPath" },
+    { name = "kind", ["in"] = "path", required = true, schema = { type = "string", enum = { "function", "procedure", "trigger" } } },
+    { name = "oid", ["in"] = "path", required = true, schema = { type = "integer", minimum = 1 } } }
+  local routine_errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED", "QUERY_FAILED" }
+  p["/connections/{id}/routines/{kind}/{oid}/script"] = {
+    parameters = routine_params,
+    get = op({
+      tags = { "objects" }, operationId = "routineScript", summary = "Fonksiyon/prosedur/trigger scripti (ddl|execute|drop)",
+      ["x-page-key"] = "script.generate",
+      parameters = { { name = "type", ["in"] = "query", schema = { type = "string", enum = { "ddl", "execute", "drop" } } }, qp("DatabaseQuery") },
+      responses = { ["200"] = resp("Script", data_of({ type = "object", properties = { sql = { type = "string" } } })) },
+      errors = routine_errors,
+    }),
+  }
+  p["/connections/{id}/routines/{kind}/{oid}"] = {
+    parameters = routine_params,
+    delete = op({
+      tags = { "objects" }, operationId = "dropRoutine", summary = "Fonksiyon/prosedur/trigger sil (cascade=true)",
+      ["x-page-key"] = "object.actions",
+      parameters = { qp("DatabaseQuery") },
+      responses = { ["200"] = resp("Silindi", data_of({ type = "object" })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED", "CONFLICT", "QUERY_FAILED" },
+    }),
+  }
+  p["/connections/{id}/routines/{kind}/{oid}/rename"] = {
+    parameters = routine_params,
+    post = op({
+      tags = { "objects" }, operationId = "renameRoutine", summary = "Fonksiyon/prosedur/trigger yeniden adlandir",
+      ["x-page-key"] = "object.actions",
+      requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "new_name" }, properties = { new_name = { type = "string" } } } } } },
+      responses = { ["200"] = resp("Yeniden adlandirildi", data_of({ type = "object" })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED", "CONFLICT", "QUERY_FAILED" },
+    }),
+  }
+  p["/connections/{id}/routines/{kind}/{oid}/enabled"] = {
+    parameters = routine_params,
+    post = op({
+      tags = { "objects" }, operationId = "toggleTrigger", summary = "Trigger etkinlestir/devre disi birak (yalnizca kind=trigger)",
+      ["x-page-key"] = "object.actions",
+      requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "enabled" }, properties = { enabled = { type = "boolean" } } } } } },
+      responses = { ["200"] = resp("Guncellendi", data_of({ type = "object" })) },
+      errors = routine_errors,
+    }),
+  }
   p["/connections/{id}/objects/{schema}/{name}/truncate"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/NamePath" } },
     post = op({
@@ -711,7 +828,7 @@ local function paths()
   }
   p["/query/csv"] = {
     post = op({
-      tags = { "export" }, operationId = "exportQueryCsv", summary = "Sorgu sonucu CSV export",
+      tags = { "export" }, operationId = "exportQueryCsv", summary = "Sorgu sonucu export (format: csv|json|xlsx)",
       ["x-page-key"] = "export.csv",
       requestBody = json_body("QueryRequest", { connection_id = "00000000-0000-0000-0000-000000000000", sql = "SELECT * FROM tbl" }),
       responses = { ["200"] = resp("CSV", { type = "string", format = "binary" }, "text/csv") },
@@ -721,9 +838,9 @@ local function paths()
   p["/connections/{id}/objects/{schema}/{table}/export"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/TablePath" } },
     post = op({
-      tags = { "export" }, operationId = "exportTableCsv", summary = "Tablo CSV export",
+      tags = { "export" }, operationId = "exportTableCsv", summary = "Tablo export (format: csv|json|xlsx)",
       ["x-page-key"] = "export.csv",
-      requestBody = { required = false, content = { ["application/json"] = { schema = { type = "object", properties = { delimiter = { type = "string" }, include_header = { type = "boolean" } } } } } },
+      requestBody = { required = false, content = { ["application/json"] = { schema = { type = "object", properties = { delimiter = { type = "string" }, include_header = { type = "boolean" }, format = { type = "string", enum = { "csv", "json", "xlsx" } } } } } } },
       responses = { ["200"] = resp("CSV", { type = "string", format = "binary" }, "text/csv") },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND" },
     }),

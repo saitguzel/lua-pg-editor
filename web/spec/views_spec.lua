@@ -113,3 +113,40 @@ describe("storage.lua", function()
     assert.is_nil(storage.get("auth"))
   end)
 end)
+
+describe("geçmiş araması vurgusu", function()
+  local history = require("views.query_history")
+
+  it("eşleşmeler büyük/küçük harf duyarsız mark ile bölünür, metin korunur", function()
+    local parts = history.highlight("SELECT a FROM t WHERE Select_x", "select")
+    assert.equal("mark", parts[1].tag)
+    assert.equal("SELECT", parts[1].children[1].text)
+    assert.equal(" a FROM t WHERE ", parts[2])
+    assert.equal("Select", parts[3].children[1].text)
+    assert.equal("_x", parts[4])
+  end)
+
+  it("arama boşsa metin aynen döner; özel karakterler desen değil", function()
+    assert.equal("a%b", history.highlight("a%b", ""))
+    local parts = history.highlight("x%_y", "%_")
+    assert.equal("%_", parts[2].children[1].text)
+  end)
+end)
+
+describe("hazır taslaklar", function()
+  local builtin = require("snippets_builtin")
+
+  it("yer tutucular düz metne çevrilir, şema adı gerekirse quote'lanır", function()
+    assert.equal("SELECT kolonlar", builtin.plain("SELECT ${kolonlar}"))
+    assert.truthy(builtin.create_template("function", "public"):find("FUNCTION public.fonksiyon_adi", 1, true))
+    assert.truthy(builtin.create_template("function", 'Ab"c'):find('FUNCTION "Ab""c".fonksiyon_adi', 1, true))
+  end)
+
+  it("önekler tekil", function()
+    local seen = {}
+    for _, s in ipairs(builtin.items) do
+      assert.is_nil(seen[s.prefix], s.prefix)
+      seen[s.prefix] = true
+    end
+  end)
+end)

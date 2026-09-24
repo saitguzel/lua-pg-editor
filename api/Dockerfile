@@ -10,7 +10,8 @@ RUN luarocks install lapis 1.16.0 \
  && luarocks install lua-resty-jwt 0.2.3 \
  && luarocks install argon2 3.0.1 \
  && luarocks install lua-resty-mail 1.1.0 \
- && luarocks install luaossl 20220711
+ && luarocks install luaossl 20220711 \
+ && luarocks install lua-resty-http 0.17.2
 
 # ---- dev: derleme imajı + test araçları ----
 FROM build AS dev

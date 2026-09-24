@@ -6,14 +6,22 @@ local cjson = require("cjson.safe")
 
 local _M = {}
 
+-- format → Content-Type ve uzantı (varsayılan csv; geriye uyumlu)
+local FORMATS = {
+  csv = { type = "text/csv; charset=utf-8", ext = "csv" },
+  json = { type = "application/json; charset=utf-8", ext = "json" },
+  xlsx = { type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ext = "xlsx" },
+}
+_M.FORMATS = FORMATS
+
 function _M.query_csv(self)
   local body, err = errors.read_json_body()
   if not body then return errors.respond(err) end
   local clean, v = validation.validate(validation.schemas.csv_export, body)
   if not clean then return errors.respond(errors.validation(v)) end
-  -- streaming: header'lar
-  ngx.header["Content-Type"] = "text/csv; charset=utf-8"
-  local filename = "query_export_" .. os.date("%Y%m%d_%H%M%S") .. ".csv"
+  local fmt = FORMATS[clean.format or "csv"]
+  ngx.header["Content-Type"] = fmt.type
+  local filename = "query_export_" .. os.date("%Y%m%d_%H%M%S") .. "." .. fmt.ext
   ngx.header["Content-Disposition"] = 'attachment; filename="' .. filename .. '"'
   -- servis streaming mantigi: biz senkron CSV uretip yaziyoruz (buyuk veri icin parcali gonderim de olur)
   local csv_data, serr = csv_service.stream_query_csv(ngx, ngx.ctx.identity, clean)
@@ -26,7 +34,7 @@ function _M.query_csv(self)
   end
   ngx.print(csv_data)
   ngx.flush(true)
-  return { status = 200, layout = false, headers = { ["Content-Type"] = "text/csv; charset=utf-8", ["Content-Disposition"] = 'attachment; filename="' .. filename .. '"' } }
+  return { status = 200, layout = false }
 end
 
 -- Alternatif: POST /query/csv non-streaming JSON body ile ama header farkli
@@ -66,12 +74,16 @@ function _M.table_csv(self)
     if ok then opts.columns = dec else opts.columns = { args.columns } end
   end
   if args.database then opts.database = args.database end
+  opts.format = args.format or (body and body.format) or "csv"
+  if not FORMATS[opts.format] then
+    return errors.respond(errors.new("VALIDATION_FAILED", "gecersiz format", { format = { "gecersiz deger" } }))
+  end
   -- validate delimiter
   if opts.delimiter and opts.delimiter ~= "," and opts.delimiter ~= ";" and opts.delimiter ~= "\t" and opts.delimiter ~= "|" then
     return errors.respond(errors.new("VALIDATION_FAILED", "gecersiz delimiter", { delimiter={"gecersiz deger"} }))
   end
-  ngx.header["Content-Type"] = "text/csv; charset=utf-8"
-  local filename = clean_ref.name .. "_" .. os.date("%Y%m%d_%H%M%S") .. ".csv"
+  ngx.header["Content-Type"] = FORMATS[opts.format].type
+  local filename = clean_ref.name .. "_" .. os.date("%Y%m%d_%H%M%S") .. "." .. FORMATS[opts.format].ext
   ngx.header["Content-Disposition"] = 'attachment; filename="' .. filename .. '"'
   local csv_data, serr = csv_service.stream_table_csv(ngx, ngx.ctx.identity, id, clean_ref.schema, clean_ref.name, opts)
   if not csv_data then

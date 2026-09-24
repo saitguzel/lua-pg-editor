@@ -12,6 +12,40 @@ _M.layout = true
 
 local PER_PAGE = 50
 
+-- SQL metninde arama: modülde tutulur (URL'e yazılmaz; her tuşta rota değişip odak kaybolmasın)
+local search = ""
+local search_seq = 0
+
+-- debounce: son tuştan 300 ms sonra fn çalışır
+local function debounced(fn)
+  search_seq = search_seq + 1
+  local my = search_seq
+  js.timer.after(300, function() if my == search_seq then app.spawn(fn) end end)
+end
+
+-- eşleşen parçalar <mark> ile vurgulanır (büyük/küçük harf duyarsız, ASCII)
+function _M.highlight(text, needle)
+  if not needle or needle == "" then return text end
+  local out, pos, lt, ln = {}, 1, text:lower(), needle:lower()
+  while true do
+    local a, b = lt:find(ln, pos, true)
+    if not a then break end
+    if a > pos then out[#out + 1] = text:sub(pos, a - 1) end
+    out[#out + 1] = dom.h("mark",
+      { class = "bg-[color-mix(in_srgb,var(--warning)_30%,transparent)] text-inherit rounded-sm" }, text:sub(a, b))
+    pos = b + 1
+  end
+  out[#out + 1] = text:sub(pos)
+  return out
+end
+
+local function search_input(id, on_change)
+  return dom.input({ id = id, type = "search", value = search, placeholder = "SQL içinde ara…",
+    ["aria-label"] = "Geçmişte ara", autocomplete = "off",
+    class = "px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg)] text-sm w-56",
+    oninput = function(e) search = e.value or ""; debounced(on_change) end })
+end
+
 local function filters()
   local q = (router.current() or {}).query or {}
   return { connection_id = q.connection_id ~= "" and q.connection_id or nil,
@@ -21,7 +55,7 @@ end
 local function load(f)
   app.dispatch({ type = "QUERY_HISTORY_REQUESTED" })
   local data, err = api.get("/query/history", { connection_id = f.connection_id, database = f.database,
-    page = f.page, per_page = PER_PAGE })
+    page = f.page, per_page = PER_PAGE, q = search ~= "" and search or nil })
   if err then
     app.dispatch({ type = "QUERY_HISTORY_FAILED" })
     app.toast("error", err.message or protocol.message(err.code))
@@ -83,7 +117,8 @@ local function entry_row(state, entry)
   return dom.li({ key = tostring(entry.id),
     class = "flex items-start gap-3 p-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
     dom.div({ class = "flex-1 min-w-0 space-y-1" },
-      dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-24 overflow-hidden" }, sql),
+      dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-24 overflow-hidden" },
+        _M.highlight(sql, search)),
       dom.div({ class = "flex flex-wrap gap-3 text-[11px] text-[var(--fg-muted)]" },
         dom.time({ datetime = entry.executed_at }, when(entry.executed_at)),
         dom.span({}, conn_name(state, entry.connection_id) .. " / " .. tostring(entry.database or "")),
@@ -119,8 +154,12 @@ function _M.render(state)
     dom.label({ class = "text-sm flex items-center gap-1" }, "Veritabanı",
       dom.input({ type = "text", class = sel .. " w-36", value = f.database or "", placeholder = "tümü",
         onchange = function(e) router.replace_query({ database = e.value or "", page = "" }) end })),
-    dom.button({ type = "button", class = "text-xs px-2 py-1 border border-[var(--border)] rounded",
-      onclick = function() app.spawn(load, filters()) end }, "Yenile"),
+    search_input("history-search", function()
+      local f2 = filters()
+      if f2.page > 1 then router.replace_query({ page = "" }) else load(f2) end
+    end),
+    dom.button({ type = "button", class = "btn btn-secondary btn-sm",
+      onclick = function() app.spawn(load, filters()) end }, require("icons").get("refresh"), dom.span({}, "Yenile")),
     f.connection_id and #items > 0 and dom.button({ type = "button",
       class = "text-xs px-2 py-1 border border-[var(--danger)] text-[var(--danger)] rounded ml-auto",
       onclick = function() _M.clear(f.connection_id, f.database, function() load(filters()) end) end },
@@ -130,7 +169,9 @@ function _M.render(state)
   if hist.status == "loading" and #items == 0 then
     body = require("components.skeleton").lines(5)
   elseif #items == 0 then
-    body = require("views.layout").empty_state({ icon = "🕘", title = "Geçmiş boş",
+    body = search ~= "" and require("views.layout").empty_state({ icon = "🔍", title = "Eşleşme yok",
+      text = "\"" .. search .. "\" içeren sorgu bulunamadı" })
+      or require("views.layout").empty_state({ icon = "🕘", title = "Geçmiş boş",
       text = "Çalıştırılan sorgular burada listelenir" })
   else
     local rows = {}
@@ -150,31 +191,51 @@ function _M.render(state)
     toolbar, body, pager)
 end
 
--- Editor ici gecmis (codd popover): aktif sekmenin baglanti/DB'si icin son 20 kayit; Uygula metni degistirir
+-- Editor ici gecmis (codd popover): aktif sekmenin baglanti/DB'si icin son 20 kayit (aranabilir);
+-- Uygula metni degistirir
+local pop = { items = {}, tab = nil }
+
+local function load_popover()
+  local tab = pop.tab
+  local data, err = api.get("/query/history", { connection_id = tab.connection_id, database = tab.database,
+    per_page = 20, q = search ~= "" and search or nil })
+  if err then app.toast("error", err.message or protocol.message(err.code)); return false end
+  pop.items = data.items or {}
+  app.schedule_render()
+  return true
+end
+
 function _M.open_popover(tab)
   app.spawn(function()
-    local data, err = api.get("/query/history", { connection_id = tab.connection_id, database = tab.database, per_page = 20 })
-    if err then app.toast("error", err.message or protocol.message(err.code)); return end
-    local items = data.items or {}
+    pop.tab = tab
+    if not load_popover() then return end
     local modal = require("components.modal")
-    local rows = {}
-    for i, e in ipairs(items) do
-      rows[i] = dom.li({ key = tostring(e.id), class = "flex items-start gap-2 py-2 border-b border-[var(--border)]" },
-        dom.div({ class = "flex-1 min-w-0" },
-          dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-16 overflow-hidden" }, e.sql or ""),
-          dom.time({ class = "text-[11px] text-[var(--fg-muted)]", datetime = e.executed_at }, when(e.executed_at))),
-        dom.button({ type = "button", class = "px-2.5 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-fg)]",
-          onclick = function() modal.close("history-popover"); _M.apply(e) end }, "Uygula"))
-    end
     modal.show({ id = "history-popover", wide = true, title = "Geçmiş",
-      content = #rows > 0 and dom.ul({ class = "max-h-[60vh] overflow-auto" }, dom.list(rows))
-        or dom.p({ class = "text-sm text-[var(--fg-muted)]" }, "Bu bağlantı/veritabanı için geçmiş yok."),
+      content = function()
+        local rows = {}
+        for i, e in ipairs(pop.items) do
+          rows[i] = dom.li({ key = tostring(e.id),
+            class = "flex items-start gap-2 py-2 border-b border-[var(--border)]" },
+            dom.div({ class = "flex-1 min-w-0" },
+              dom.pre({ class = "text-xs font-mono whitespace-pre-wrap break-words max-h-16 overflow-hidden" },
+                _M.highlight(e.sql or "", search)),
+              dom.time({ class = "text-[11px] text-[var(--fg-muted)]", datetime = e.executed_at },
+                when(e.executed_at))),
+            dom.button({ type = "button", class = "btn btn-accent btn-sm",
+              onclick = function() modal.close("history-popover"); _M.apply(e) end }, "Uygula"))
+        end
+        return dom.div({ class = "space-y-2" },
+          search_input("history-popover-search", load_popover),
+          #rows > 0 and dom.ul({ class = "max-h-[60vh] overflow-auto" }, dom.list(rows))
+            or dom.p({ class = "text-sm text-[var(--fg-muted)]" },
+              search ~= "" and "Eşleşen sorgu yok." or "Bu bağlantı/veritabanı için geçmiş yok."))
+      end,
       actions = {
         { label = "Tümünü gör", onclick = function()
           router.navigate("#/query/history?connection_id=" .. router.urlencode(tab.connection_id)
             .. (tab.database and ("&database=" .. router.urlencode(tab.database)) or ""))
         end },
-        #rows > 0 and { label = "Temizle", onclick = function() _M.clear(tab.connection_id, tab.database) end } or nil,
+        { label = "Temizle", onclick = function() _M.clear(tab.connection_id, tab.database) end },
       } })
   end)
 end

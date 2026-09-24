@@ -96,7 +96,7 @@ local function cell_menu(e, result, opts)
   }
   if opts.on_export then
     items[#items + 1] = { separator = true }
-    items[#items + 1] = { label = "CSV dışa aktar…", onclick = opts.on_export }
+    items[#items + 1] = { label = "Dışa aktar (CSV / Excel / JSON)…", onclick = opts.on_export }
   end
   require("components.context_menu").open(e, items)
 end
@@ -112,7 +112,7 @@ local function render_error(err)
       and dom.pre({ class = "text-xs text-[var(--fg-muted)] mt-2 whitespace-pre-wrap" }, tostring(err.details.db_message)) or nil)
 end
 
--- opts: { row_limit, on_row_limit(n), on_export() }
+-- opts: { row_limit, on_row_limit(n), on_export(), scroll_class }
 function result_grid.render(result, opts)
   opts = opts or {}
   if not result then
@@ -162,7 +162,8 @@ function result_grid.render(result, opts)
       end })) or nil
 
   return dom.div({ class = "space-y-2" },
-    dom.div({ class = "overflow-auto border border-[var(--border)] rounded-[var(--radius)] max-h-[32rem]" },
+    dom.div({ class = "overflow-auto border border-[var(--border)] rounded-[var(--radius)] "
+      .. (opts.scroll_class or "max-h-[32rem]") },
       dom.table({ class = "w-full text-sm border-collapse" },
         dom.thead({}, dom.tr({}, dom.list(header_cells))),
         dom.tbody({

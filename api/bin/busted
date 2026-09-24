@@ -4,5 +4,5 @@ DIR=$(cd "$(dirname "$0")" && pwd)
 exec resty \
   --shdict 'rbac_cache 1m' --shdict 'jwt_denylist 10m' --shdict 'rate_limit 10m' \
   --shdict 'query_rate_limit 10m' --shdict 'completion_cache 5m' \
-  --shdict 'job_locks 1m' --shdict 'metrics 1m' \
+  --shdict 'job_locks 1m' --shdict 'metrics 1m' --shdict 'ai_state 1m' \
   "$DIR/busted.lua" "$@"

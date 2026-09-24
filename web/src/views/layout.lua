@@ -5,20 +5,25 @@ local dom = require("dom")
 local router = require("router")
 local app = require("app")
 local theme_toggle = require("components.theme_toggle")
+local icons = require("icons")
+local storage = require("storage")
 
 local layout = {}
+local last_saved_open = nil
 
 -- Menü öğeleri; görünürlük tamamen izne bağlı
 local NAV = {
-  { href = "#/", label = "Pano", page_key = "dashboard", icon = "▦", routes = { dashboard = true } },
-  { href = "#/connections", label = "Bağlantılar", page_key = "connections.list", icon = "⎆",
+  { href = "#/", label = "Pano", page_key = "dashboard", icon = "dashboard", routes = { dashboard = true } },
+  { href = "#/connections", label = "Bağlantılar", page_key = "connections.list", icon = "plug",
     routes = { connections = true } },
   -- tablolar sorgu/tarayici sayfalarindaki nesne kenar cubugundan acilir (codd)
-  { href = "#/query", label = "Sorgu", page_key = "query.execute", icon = "▶",
+  { href = "#/query", label = "Sorgu", page_key = "query.execute", icon = "terminal",
     routes = { query = true, browse = true, structure = true, query_history = true } },
-  { href = "#/users", label = "Kullanıcılar", page_key = "users.list", icon = "👥", routes = { users = true } },
-  { href = "#/rbac", label = "Yetkiler", page_key = "rbac.matrix", icon = "🔐", routes = { rbac = true } },
-  { href = "#/audit", label = "Denetim", page_key = "audit.logs", icon = "≡", routes = { audit = true } },
+  { href = "#/users", label = "Kullanıcılar", page_key = "users.list", icon = "users", routes = { users = true } },
+  { href = "#/rbac", label = "Yetkiler", page_key = "rbac.matrix", icon = "shield", routes = { rbac = true } },
+  { href = "#/audit", label = "Denetim", page_key = "audit.logs", icon = "list", routes = { audit = true } },
+  -- herkese açık (tema/görünüm); AI kartı sayfa içinde settings iznine bağlı
+  { href = "#/settings", label = "Ayarlar", icon = "settings", routes = { settings = true } },
 }
 
 function layout.render(state, dispatch, content, title)
@@ -26,7 +31,7 @@ function layout.render(state, dispatch, content, title)
   local user = auth.user or {}
   local nav_items = {}
   for _, item in ipairs(NAV) do
-    if router.can(auth, item.page_key) then
+    if not item.page_key or router.can(auth, item.page_key) then
       local active = item.routes[state.route.name or ""] == true
       nav_items[#nav_items + 1] = dom.li({},
         dom.a({
@@ -36,17 +41,27 @@ function layout.render(state, dispatch, content, title)
               "text-[var(--primary-fg)]"
             or "nav-link flex items-center gap-2 px-3 py-2 rounded-[var(--radius)] hover:bg-[var(--bg)]",
           ["aria-current"] = active and "page" or nil,
-        }, dom.span({ ["aria-hidden"] = "true" }, item.icon), item.label))
+          title = item.label,
+        }, icons.get(item.icon, "w-5 h-5 shrink-0"), dom.span({ class = "nav-label" }, item.label)))
     end
   end
 
+  local open = state.ui.sidebar_open
+  local mobile = js.media and js.media.matches and js.media.matches("(max-width: 767px)")
+  -- masaüstünde tercih kalıcı (mobilde gezinme menüyü kapatır; o tercih sayılmaz)
+  if not mobile and open ~= last_saved_open then
+    last_saved_open = open
+    storage.set_raw("sidebar", open and "open" or "rail")
+  end
   return dom.div({ class = "min-h-screen flex" },
     dom.aside({
       id = "sidebar",
       ["aria-label"] = "Ana menü",
-      class = state.ui.sidebar_open
-        and "sidebar sidebar-open w-60 border-r border-[var(--border)] bg-[var(--bg-elev)] p-4"
-        or "sidebar hidden w-60 border-r border-[var(--border)] bg-[var(--bg-elev)] p-4",
+      -- kapalı: masaüstünde ikon rayı, mobilde tamamen gizli
+      class = open
+        and "sidebar sidebar-open w-60 shrink-0 border-r border-[var(--border)] bg-[var(--bg-elev)] p-4"
+        or "sidebar sidebar-rail hidden md:block shrink-0 border-r border-[var(--border)] bg-[var(--bg-elev)] py-4",
+      ["data-collapsed"] = tostring(not open),
     },
       dom.nav({ ["aria-label"] = "Sayfalar" }, dom.ul({ class = "space-y-1", role = "list" }, nav_items))),
     dom.div({ class = "flex-1 flex flex-col min-w-0" },
@@ -54,20 +69,20 @@ function layout.render(state, dispatch, content, title)
         dom.div({ class = "flex items-center gap-3 min-w-0" },
           dom.button({
             type = "button",
-            class = "md:hidden text-xl w-11 h-11", ["aria-label"] = "Menüyü aç",
-            ["aria-controls"] = "sidebar", ["aria-expanded"] = tostring(state.ui.sidebar_open),
+            class = "btn btn-ghost btn-icon", ["aria-label"] = open and "Menüyü daralt" or "Menüyü genişlet",
+            title = "Menüyü daralt/genişlet (Ctrl+B)",
+            ["aria-controls"] = "sidebar", ["aria-expanded"] = tostring(open),
             onclick = function() dispatch({ type = "SIDEBAR_TOGGLED" }) end,
-          }, "☰"),
+          }, icons.get(open and "panel-left" or "menu", "w-5 h-5")),
           dom.span({ class = "text-lg font-semibold truncate" }, "pgLua")),
         dom.div({ class = "flex items-center gap-2 md:gap-3" },
           theme_toggle.render_compact(state, dispatch),
           dom.a({ href = "#/profile", class = "text-sm text-[var(--fg-muted)] hover:underline truncate max-w-40",
             ["aria-current"] = state.route.name == "profile" and "page" or nil }, user.email or "Profil"),
           dom.button({
-            type = "button",
-            class = "text-sm px-3 py-1.5 rounded-[var(--radius)] border border-[var(--border)] hover:bg-[var(--bg-elev)]",
+            type = "button", class = "btn btn-secondary", title = "Çıkış",
             onclick = function() app.logout() end,
-          }, "Çıkış"))),
+          }, icons.get("logout"), dom.span({ class = "hidden sm:inline" }, "Çıkış")))),
       dom.main({ id = "main", tabindex = "-1", class = "flex-1 p-4 md:p-6 min-w-0",
         ["aria-label"] = title }, content)))
 end

@@ -151,7 +151,38 @@ function _M.completion_catalog(pg)
     if t and r.column_name then t.columns[#t.columns + 1] = { name = r.column_name, type = r.data_type } end
   end
   local out = { schemas = {} }
-  for i, sch in ipairs(schemas) do out.schemas[i] = { name = sch, tables = by_schema[sch] } end
+  local index = {}
+  for i, sch in ipairs(schemas) do
+    out.schemas[i] = { name = sch, tables = by_schema[sch], routines = {}, triggers = {} }
+    index[sch] = out.schemas[i]
+  end
+  -- fonksiyon/prosedürler (eklenti fonksiyonları hariç: pgcrypto vb. listeyi boğar) ve kullanıcı trigger'ları
+  local routines = pg:query([[SELECT n.nspname AS schema, p.oid::bigint AS oid, p.proname AS name,
+      CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS kind,
+      pg_get_function_identity_arguments(p.oid) AS args, pg_get_function_result(p.oid) AS returns,
+      l.lanname AS language
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang
+    WHERE ]] .. USER_SCHEMAS .. [[ AND p.prokind IN ('f', 'p')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+                      AND d.deptype = 'e')
+    ORDER BY 1, 3, 5]]) or {}
+  for _, r in ipairs(routines) do
+    local sch = index[r.schema]
+    if sch then
+      sch.routines[#sch.routines + 1] = { oid = r.oid, name = r.name, kind = r.kind, args = r.args,
+        returns = r.returns, language = r.language }
+    end
+  end
+  local triggers = pg:query([[SELECT n.nspname AS schema, t.oid::bigint AS oid, t.tgname AS name,
+      c.relname AS table_name, t.tgenabled::text <> 'D' AS enabled
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE ]] .. USER_SCHEMAS .. [[ AND NOT t.tgisinternal ORDER BY 1, 3]]) or {}
+  for _, r in ipairs(triggers) do
+    local sch = index[r.schema]
+    if sch then
+      sch.triggers[#sch.triggers + 1] = { oid = r.oid, name = r.name, table = r.table_name, enabled = r.enabled }
+    end
+  end
   return out
 end
 

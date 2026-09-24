@@ -27,7 +27,9 @@ function _M.insert(entry)
   return row
 end
 
-function _M.find_by_connection_db(user_id, connection_id, database, limit, offset)
+-- search: SQL metninde büyük/küçük harf duyarsız alt dizgi (LIKE jokerleri kaçışlı)
+-- ponytail: ILIKE sıralı tarama; kullanıcı+DB başına en fazla 100 kayıt olduğundan yeterli
+function _M.find_by_connection_db(user_id, connection_id, database, limit, offset, search)
   limit = tonumber(limit) or 50
   if limit < 1 then limit = 1 end
   if limit > 100 then limit = 100 end
@@ -46,6 +48,11 @@ function _M.find_by_connection_db(user_id, connection_id, database, limit, offse
     idx = idx + 1
     where = where .. " AND database=$" .. idx
     params[idx] = database
+  end
+  if search and search ~= "" then
+    idx = idx + 1
+    where = where .. " AND sql ILIKE $" .. idx .. " ESCAPE '\\'"
+    params[idx] = query.like_pattern(search)
   end
   idx = idx + 1
   local lim_idx = idx

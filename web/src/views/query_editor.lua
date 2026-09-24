@@ -8,6 +8,7 @@ local router = require("router")
 local editor = require("editor")
 local protocol = require("pg_shared.protocol")
 local storage = require("storage")
+local icons = require("icons")
 
 local _M = {}
 _M.title = "Sorgu Editörü"
@@ -201,13 +202,164 @@ local function export_csv(tab)
   if not tab or not tab.connection_id or tab.connection_id == "" then app.toast("error", "Bağlantı seçin"); return end
   local sql = sql_to_run(tab)
   if not sql:match("%S") then app.toast("error", "SQL boş"); return end
-  require("components.csv_dialog").open("Sorgu sonucunu CSV'ye aktar", function(o)
+  require("components.csv_dialog").open("Sorgu sonucunu dışa aktar", function(o)
     app.spawn(function()
-      local ok, err = api.download("/query/csv", "query.csv", nil, { connection_id = tab.connection_id,
-        database = tab.database, sql = sql, delimiter = o.delimiter, limit = o.limit, include_header = o.include_header })
+      local ok, err = api.download("/query/csv", "query." .. o.ext, nil, { connection_id = tab.connection_id,
+        database = tab.database, sql = sql, delimiter = o.delimiter, limit = o.limit, include_header = o.include_header,
+        format = o.format })
       if not ok then app.toast("error", err and err.message or protocol.message(err and err.code)) end
     end)
   end)
+end
+
+-- --- taslaklar -----------------------------------------------------------------------
+-- taslak listesi değişti: açık editörlerin önek tamamlaması güncellenir
+function _M.apply_snippets()
+  local list = require("components.snippet_picker").all()
+  for _, h in pairs(editor_handles) do editor.set_snippets(h, list) end
+end
+
+-- Ctrl+J: taslak paleti; seçilen taslak aktif editörde imlece (seçimin yerine) eklenir
+function _M.open_snippets()
+  require("components.snippet_picker").open({ on_insert = function(body)
+    local tab = active_tab()
+    local h = tab and editor_handles[tab.id]
+    if h then
+      editor.insert_snippet(h, body)
+    else
+      _M.append_sql(require("snippets_builtin").plain(body))
+    end
+  end })
+  return true
+end
+
+-- Alt+S: seçili metni (yoksa tüm sekmeyi) yeni taslak olarak kaydet
+function _M.save_as_snippet()
+  local tab = active_tab()
+  if not tab then return false end
+  local sql = sql_to_run(tab)
+  if not sql:match("%S") then app.toast("error", "Kaydedilecek SQL yok"); return true end
+  require("components.snippet_picker").open({ new_body = sql })
+  return true
+end
+
+-- --- AI ile SQL (yönetici ayarlarında açıksa ve query.ai izni varsa) ------------------------
+-- status: GET /ai/status; kapalı/izinsizse hiçbir AI bileşeni render edilmez.
+local ai = { status = nil, open = false, model = nil, running = false, token = 0, last = nil }
+
+local function ai_enabled() return ai.status and ai.status.enabled == true end
+
+local function load_ai_status()
+  if not app.can("query.ai") then ai.status = nil; return end
+  local data = api.get("/ai/status")
+  ai.status = data
+  if data and data.enabled and not ai.model then ai.model = data.default_model or "auto" end
+  app.schedule_render()
+end
+
+-- Ctrl+I: AI çubuğunu aç/kapat, açılınca isteme odaklan
+function _M.toggle_ai()
+  if not ai_enabled() then return false end
+  ai.open = not ai.open
+  app.schedule_render()
+  if ai.open then js.timer.after(30, function() dom.focus("ai-prompt") end) end
+  return true
+end
+
+-- modify=true: seçili SQL (yoksa tüm sekme) talimata göre güncellenir; aksi halde üretilen SQL imlece eklenir
+local function ai_run(tab, modify)
+  if ai.running then return end
+  local prompt = (dom.value("ai-prompt") or ""):match("^%s*(.-)%s*$")
+  if prompt == "" then app.toast("error", "Ne istediğinizi yazın"); dom.focus("ai-prompt"); return end
+  if not tab.connection_id then app.toast("error", "Bağlantı seçin"); return end
+  local sql = modify and sql_to_run(tab) or nil
+  if modify and not sql:match("%S") then app.toast("error", "Güncellenecek SQL yok"); return end
+  ai.running, ai.token = true, ai.token + 1
+  local my = ai.token
+  app.schedule_render()
+  app.spawn(function()
+    local data, err = api.post("/ai/generate", { connection_id = tab.connection_id, database = tab.database,
+      prompt = prompt, model = ai.model ~= "auto" and ai.model or nil, sql = sql })
+    if my ~= ai.token then return end -- vazgeçildi
+    ai.running = false
+    app.schedule_render()
+    if err then
+      app.toast("error", err.message or protocol.message(err.code))
+      return
+    end
+    local h = editor_handles[tab.id]
+    if h then
+      -- tek işlem: Ctrl+Z önceki metni geri getirir
+      editor.replace_text(h, data.sql, modify)
+    elseif modify then
+      _M.set_sql(tab.id, data.sql)
+    else
+      _M.append_sql(data.sql)
+    end
+    ai.last = { model = data.model, seconds = (tonumber(data.duration_ms) or 0) / 1000 }
+    app.toast("success", (modify and "SQL güncellendi" or "SQL oluşturuldu") .. " — kontrol edip çalıştırın")
+  end)
+end
+
+local function ai_cancel()
+  ai.token, ai.running = ai.token + 1, false
+  app.schedule_render()
+end
+
+local function render_ai_bar(tab)
+  if not (ai_enabled() and ai.open) then return nil end
+  local st = ai.status
+  local close = dom.button({ type = "button", class = "btn btn-ghost btn-icon btn-sm", ["aria-label"] = "AI çubuğunu kapat",
+    onclick = function() ai.open = false; app.schedule_render() end }, icons.get("x"))
+  local box = "flex flex-wrap items-center gap-2 p-2 rounded-[var(--radius)] border "
+    .. "border-[color-mix(in_srgb,var(--ai-a)_45%,var(--border))] bg-[color-mix(in_srgb,var(--ai-a)_6%,var(--bg-elev))]"
+  if not st.configured then
+    return dom.div({ class = box, role = "region", ["aria-label"] = "AI ile SQL" },
+      dom.span({ class = "text-[var(--ai-a)]" }, icons.get("sparkles")),
+      dom.span({ class = "text-sm flex-1" },
+        "AI açık ama henüz kullanılabilir model yok. Yönetici Ayarlar → Yapay Zekâ bölümünden model seçmeli."),
+      close)
+  end
+  local opts = { dom.option({ value = "auto", selected = ai.model == "auto" and "selected" or nil },
+    "Otomatik model") }
+  for _, m in ipairs(st.models or {}) do
+    local label = m.id .. (m.ok and m.latency_ms and string.format(" · %.1f sn", m.latency_ms / 1000) or "")
+      .. (m.ok == false and " · hatalı" or "")
+    opts[#opts + 1] = dom.option({ value = m.id, selected = ai.model == m.id and "selected" or nil }, label)
+  end
+  local has_sel = has_selection[tab.id]
+  return dom.div({ class = box, role = "region", ["aria-label"] = "AI ile SQL" },
+    dom.span({ class = "text-[var(--ai-a)]", ["aria-hidden"] = "true" }, icons.get("sparkles", "w-5 h-5")),
+    dom.input({ id = "ai-prompt", type = "text", autocomplete = "off", maxlength = "4000",
+      class = "flex-1 min-w-64 px-3 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--bg)]",
+      placeholder = "Ne istediğinizi yazın — ör. son 7 günde sipariş veren müşteriler, toplam tutara göre",
+      ["aria-label"] = "AI isteği", disabled = ai.running and "disabled" or nil,
+      onkeydown = function(e) if e.key == "Enter" and not e.shiftKey then ai_run(tab, false) end end }),
+    dom.select({ ["aria-label"] = "AI modeli", class = "px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--bg)] max-w-64",
+      onchange = function(e) ai.model = e.value end }, dom.list(opts)),
+    ai.running
+      and dom.span({ class = "flex items-center gap-2 text-sm", role = "status" },
+        dom.span({ class = "skeleton h-3 w-3 rounded-full", ["aria-hidden"] = "true" }), "AI yazıyor…",
+        icons.button({ icon = "stop", label = "Vazgeç", variant = "danger", class = "btn-sm", onclick = ai_cancel }))
+      or dom.div({ class = "flex gap-2" },
+        icons.button({ icon = "sparkles", label = "Oluştur", variant = "ai", title = "SQL üret ve imlece ekle (Enter)",
+          onclick = function() ai_run(tab, false) end }),
+        icons.button({ icon = "wand", label = has_sel and "Seçimi güncelle" or "Sorguyu güncelle", variant = "ai",
+          title = has_sel and "Seçili SQL'i talimata göre değiştir" or "Sekmedeki SQL'i talimata göre değiştir",
+          onclick = function() ai_run(tab, true) end })),
+    ai.last and not ai.running and dom.span({ class = "badge text-[11px]", title = "Son AI yanıtı" },
+      ai.last.model .. string.format(" · %.1f sn", ai.last.seconds)) or nil,
+    close)
+end
+
+-- Ekranı temizle: editör + sonuç/hata. Editör değişikliği CodeMirror işlemi → Ctrl+Z geri alır.
+function _M.clear_screen()
+  local tab = active_tab()
+  if not tab or tab.status == "running" then return false end
+  _M.set_sql(tab.id, "")
+  app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { result = false, error = false, status = "idle" } })
+  _M.focus_editor()
+  return true
 end
 
 -- --- route ---------------------------------------------------------------------------
@@ -241,6 +393,9 @@ function _M.enter(route, state)
   end
   local tab = active_tab()
   if tab and tab.connection_id then load_completion(tab.connection_id, tab.database) end
+  -- kullanıcı taslakları (önek tamamlaması için); yüklüyse tekrar istenmez
+  require("components.snippet_picker").load(false)
+  load_ai_status()
 end
 
 local function close_tab(id)
@@ -284,6 +439,7 @@ local function mount_editor(tab, catalog)
     value = sql_of(tab),
     ariaLabel = "SQL sorgusu",
     schema = catalog or {},
+    snippets = require("components.snippet_picker").all(),
     onChange = function(v) on_editor_change(tab.id, v) end,
     onSelection = function(sel)
       if has_selection[tab.id] ~= sel then has_selection[tab.id] = sel; app.schedule_render() end
@@ -292,6 +448,7 @@ local function mount_editor(tab, catalog)
       current_sql[tab.id] = v
       run_query(active_tab())
     end,
+    onAi = function() _M.toggle_ai() end,
   })
   if ok and h then
     editor_handles[tab.id] = h
@@ -375,7 +532,13 @@ local function render_toolbar(state, dispatch, tab)
       c.name .. " (" .. c.host .. ":" .. tostring(c.port) .. ")")
   end
   local running = tab.status == "running"
-  return dom.div({ class = "flex flex-wrap items-center gap-2 p-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
+  local no_conn = not tab.connection_id
+  -- her kullanımda yeni vnode (aynı vnode iki kez yerleştirilirse diff DOM handle'ını ezer)
+  local function sep() return dom.span({ class = "w-px h-6 bg-[var(--border)] mx-1 hidden sm:block", ["aria-hidden"] = "true" }) end
+  return dom.div({ role = "toolbar", ["aria-label"] = "Sorgu araçları",
+    class = "toolbar-collapse flex flex-wrap items-center gap-2 p-2 border border-[var(--border)] "
+      .. "rounded-[var(--radius)] bg-[var(--bg-elev)]" },
+    icons.get("database", "w-4 h-4 text-[var(--fg-muted)] hidden sm:block"),
     dom.select({
       ["aria-label"] = "Bağlantı",
       class = "px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--bg)] min-w-40",
@@ -387,21 +550,26 @@ local function render_toolbar(state, dispatch, tab)
       end,
     }, dom.list(conn_opts)),
     database_picker(dispatch, tab),
+    sep(),
     running
-      and dom.button({ type = "button",
-        class = "px-4 py-1.5 rounded-[var(--radius)] bg-[var(--danger)] text-white text-sm min-h-9",
-        onclick = function() _M.cancel_run() end }, "İptal (Esc)")
-      or dom.button({ type = "button",
-        class = "px-4 py-1.5 rounded-[var(--radius)] bg-[var(--primary)] text-[var(--primary-fg)] text-sm hover:opacity-90 min-h-9",
-        onclick = function() run_query(tab) end }, "Çalıştır (Ctrl+Enter)"),
-    app.can("export.csv") and dom.button({
-      type = "button", class = "px-3 py-1.5 rounded border border-[var(--border)] text-sm hover:bg-[var(--bg)]",
-      onclick = function() export_csv(tab) end,
-    }, "CSV") or nil,
-    dom.button({ type = "button", class = "px-3 py-1.5 rounded border border-[var(--border)] text-sm hover:bg-[var(--bg)]",
-      disabled = not tab.connection_id and "disabled" or nil,
-      onclick = function() require("views.query_history").open_popover(tab) end }, "Geçmiş"),
-    has_selection[tab.id] and dom.span({ class = "text-xs text-[var(--fg-muted)]", role = "status" },
+      and icons.button({ icon = "stop", label = "İptal", variant = "danger", title = "Çalışan sorguyu iptal et (Esc)",
+        onclick = function() _M.cancel_run() end })
+      or icons.button({ icon = "play", label = "Çalıştır", variant = "primary",
+        title = has_selection[tab.id] and "Seçimi çalıştır (Ctrl+Enter)" or "Çalıştır (Ctrl+Enter)",
+        onclick = function() run_query(tab) end }),
+    icons.button({ icon = "eraser", label = "Temizle", title = "Ekranı temizle (Alt+L) — Ctrl+Z geri alır",
+      disabled = running, onclick = function() _M.clear_screen() end }),
+    sep(),
+    app.can("export.csv") and icons.button({ icon = "download", label = "Dışa aktar",
+      title = "Dışa aktar (CSV / Excel / JSON)", disabled = no_conn, onclick = function() export_csv(tab) end }) or nil,
+    ai_enabled() and icons.button({ icon = "sparkles", label = "AI ile oluştur", variant = "ai",
+      title = "Doğal dilden SQL üret / seçimi AI ile güncelle (Ctrl+I)", ["aria-haspopup"] = "true",
+      onclick = function() _M.toggle_ai() end }) or nil,
+    icons.button({ icon = "code", label = "Taslaklar", title = "Taslak ekle (Ctrl+J) · seçimi kaydet (Alt+S)",
+      onclick = function() _M.open_snippets() end }),
+    icons.button({ icon = "history", label = "Geçmiş", disabled = no_conn,
+      onclick = function() require("views.query_history").open_popover(tab) end }),
+    has_selection[tab.id] and dom.span({ class = "badge badge-in_progress", role = "status" },
       "Seçim çalıştırılacak") or nil)
 end
 
@@ -418,7 +586,7 @@ local function render_editor(tab)
     })
   end
   return dom.div({ key = "editor-" .. tab.id, id = "editor-" .. tab.id,
-    class = "border border-[var(--border)] rounded-[var(--radius)] overflow-hidden min-h-[180px] bg-[var(--bg)]" })
+    class = "query-editor-box border border-[var(--border)] rounded-[var(--radius)] overflow-hidden bg-[var(--bg)]" })
 end
 
 local function render_result(tab)
@@ -432,6 +600,7 @@ local function render_result(tab)
         schedule_persist()
       end,
       on_export = app.can("export.csv") and function() export_csv(tab) end or nil,
+      scroll_class = "query-result-box",
     })
   end
   if tab.status == "running" then
@@ -458,8 +627,15 @@ function _M.render(state, dispatch)
         for _, h in pairs(editor_handles) do editor.set_completions(h, catalog) end
       end
     end)
-    main = dom.div({ class = "space-y-3 min-w-0" },
-      render_toolbar(state, dispatch, tab), render_editor(tab), render_result(tab))
+    main = dom.div({ class = "flex flex-col gap-2 min-w-0" },
+      render_toolbar(state, dispatch, tab), render_ai_bar(tab), render_editor(tab),
+      -- editör/sonuç ayracı (sürükle veya ok tuşları; glue.js)
+      not editor_failed and dom.div({ class = "splitter-h", ["data-splitter"] = "editor-h", role = "separator",
+        tabindex = "0", ["aria-orientation"] = "horizontal", ["aria-label"] = "Editör yüksekliği",
+        ["aria-valuemin"] = "180", ["aria-valuemax"] = "1200",
+        ["aria-valuenow"] = tostring(tonumber(storage.get_raw("split.editor-h")) or 240),
+        title = "Sürükleyerek editör yüksekliğini ayarlayın" }) or nil,
+      render_result(tab))
   else
     main = dom.div({ class = "p-6 text-center border border-dashed border-[var(--border)] rounded-[var(--radius)]" },
       dom.p({ class = "text-sm text-[var(--fg-muted)] mb-3" }, "Açık sorgu sekmesi yok."),
@@ -470,11 +646,20 @@ function _M.render(state, dispatch)
   local ok, sidebar_mod = pcall(require, "views.schema_sidebar")
   local sidebar = ok and sidebar_mod.render(state, dispatch)
     or dom.div({ class = "p-2 text-xs text-[var(--fg-muted)] border rounded" }, "Şema yükleniyor…")
+  local objects_hidden = ok and sidebar_mod.is_hidden(state)
 
   return dom.div({ class = "space-y-3" },
     dom.h1({ class = "text-xl font-bold", tabindex = "-1" }, "Sorgu Editörü"),
     render_tab_bar(dispatch, tabs, active_idx),
-    dom.div({ class = "grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3" }, sidebar, main))
+    -- nesne paneli | ayraç | editör; panel gizlenince editör genişler (styles.css .query-grid)
+    dom.div({ class = "query-grid" .. (objects_hidden and " objects-hidden" or "") },
+      sidebar,
+      not objects_hidden and dom.div({ class = "splitter-v hidden lg:block", ["data-splitter"] = "objects-w",
+        role = "separator", tabindex = "0", ["aria-orientation"] = "vertical",
+        ["aria-label"] = "Nesne paneli genişliği", ["aria-valuemin"] = "180", ["aria-valuemax"] = "640",
+        ["aria-valuenow"] = tostring(tonumber(storage.get_raw("split.objects-w")) or 280),
+        title = "Sürükleyerek panel genişliğini ayarlayın" }) or nil,
+      main))
 end
 
 -- global kisayollar icin disaridan tetikleyiciler

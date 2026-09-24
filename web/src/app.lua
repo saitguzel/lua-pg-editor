@@ -680,6 +680,8 @@ function app.start(opts)
   end)
   -- codd Compact Mode: yogun veri gorunumu (Ayarlar'dan)
   js.dom.setRootAttr("data-density", storage.get_raw("density") == "compact" and "compact" or "comfortable")
+  -- ana menü: masaüstünde son tercih (rail = yalnızca ikonlar)
+  if storage.get_raw("sidebar") == "rail" then app.dispatch({ type = "SIDEBAR_SET", sidebar_open = false }) end
 
   -- 2. api yapılandırması
   api.configure({

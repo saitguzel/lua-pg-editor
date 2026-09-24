@@ -177,12 +177,13 @@ end
 
 local function export_csv()
   local p = current_params()
-  require("components.csv_dialog").open(p.table .. " → CSV", function(o)
+  require("components.csv_dialog").open(p.table .. " → dışa aktar", function(o)
     app.spawn(function()
-      local ok, err = api.download((rows_path(p):gsub("/rows$", "/export")), p.table .. ".csv", nil, {
+      local ok, err = api.download((rows_path(p):gsub("/rows$", "/export")), p.table .. "." .. o.ext, nil, {
+        format = o.format,
         database = p.database, filters = p.filters, custom_where = p.custom_where ~= "" and p.custom_where or nil,
         sort = p.sort, delimiter = o.delimiter, limit = o.limit, include_header = o.include_header })
-      if not ok then app.toast("error", err and err.message or "CSV indirilemedi") end
+      if not ok then app.toast("error", err and err.message or "Dosya indirilemedi") end
     end)
   end)
 end
@@ -317,7 +318,8 @@ function _M.render(state, dispatch)
           if filter_bar.is_open() then filter_bar.close() else filter_bar.open(cur.filters, cur.custom_where) end
           app.schedule_render()
         end }, nfilters > 0 and ("Filtreler (" .. nfilters .. ")") or "Filtreler"),
-      app.can("export.csv") and dom.button({ type = "button", class = BTN, onclick = export_csv }, "CSV") or nil,
+      app.can("export.csv") and require("icons").button({ icon = "download", label = "Dışa aktar",
+        title = "Dışa aktar (CSV / Excel / JSON)", onclick = export_csv }) or nil,
       dom.button({ type = "button", class = BTN, title = "Yenile (Ctrl+R)", onclick = reload }, "Yenile"),
       dom.a({ class = BTN, href = "#/structure/" .. router.urlencode(cur.schema) .. "/" .. router.urlencode(cur.table)
           .. "?connection_id=" .. router.urlencode(cur.connection_id) .. (cur.database and ("&database=" .. router.urlencode(cur.database)) or "") },

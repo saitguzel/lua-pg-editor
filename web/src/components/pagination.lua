@@ -7,7 +7,7 @@ local pagination = {}
 
 local SIZE_OPTIONS = types.PAGE_SIZE_OPTIONS or { 50, 100, 250, 500 }
 
--- meta: { page, per_page, total, has_next }; on_change({ page, per_page })
+-- meta: { page, per_page, total, has_next, sizes? }; on_change({ page, per_page })
 function pagination.render(meta, on_change)
   meta = meta or {}
   local page = tonumber(meta.page) or 1
@@ -18,7 +18,7 @@ function pagination.render(meta, on_change)
   local last_row = math.min(page * per_page, total)
 
   local size_opts = {}
-  for _, sz in ipairs(SIZE_OPTIONS) do
+  for _, sz in ipairs(meta.sizes or SIZE_OPTIONS) do
     size_opts[#size_opts + 1] = dom.option({ value = tostring(sz), selected = per_page == sz and "selected" or nil }, tostring(sz))
   end
   local function go(p) return function() on_change({ page = p, per_page = per_page }) end end

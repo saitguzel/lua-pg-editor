@@ -63,7 +63,17 @@ _M.AUDIT_ACTIONS = {
 }
 
 _M.FILTER_OPS = { "=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL" }
-_M.OBJECT_KINDS = { "table", "view", "matview", "partitioned", "foreign" }
+-- F25: nesne gezgini kategorileri (sira UI sirasidir) ve tum nesne turleri (database_object.kind)
+_M.OBJECT_CATEGORIES = {
+  "tables", "views", "matviews", "foreign_tables", "sequences",
+  "functions", "procedures", "types", "domains", "extensions",
+  "operators", "collations", "fts_configs", "fts_dicts", "fts_parsers", "fts_templates",
+}
+_M.OBJECT_KINDS = { "table", "view", "matview", "partitioned", "foreign", "sequence",
+  "function", "aggregate", "window", "procedure", "type_base", "type_composite", "type_enum", "type_range",
+  "domain", "extension", "operator", "collation", "fts_config", "fts_dict", "fts_parser", "fts_template" }
+-- iliski (pg_class) olan turler: tarayici/yapi sekmeleri bunlar icin
+_M.RELATION_KINDS = { "table", "view", "matview", "partitioned", "foreign" }
 _M.SCRIPT_KINDS = { "select", "insert", "update", "delete", "create", "drop", "truncate" }
 
 -- codd: kolon tipine gore filtre operatorleri (frontend secenekleri ve backend dogrulamasi ayni tablo)
@@ -114,6 +124,8 @@ _M.PAGE_SET = to_set(_M.PAGES)
 _M.AUDIT_SET = to_set(_M.AUDIT_ACTIONS)
 _M.FILTER_OP_SET = to_set(_M.FILTER_OPS)
 _M.OBJECT_KIND_SET = to_set(_M.OBJECT_KINDS)
+_M.OBJECT_CATEGORY_SET = to_set(_M.OBJECT_CATEGORIES)
+_M.RELATION_KIND_SET = to_set(_M.RELATION_KINDS)
 _M.SCRIPT_KIND_SET = to_set(_M.SCRIPT_KINDS)
 
 function _M.is_member(set, value)

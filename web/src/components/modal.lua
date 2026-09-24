@@ -166,22 +166,36 @@ function modal.help()
   open_modals[#open_modals + 1] = {
     id = "shortcut-help",
     title = "Klavye kısayolları",
+    wide = true,
     render_fn = function()
+      -- F29: scope'a göre gruplu kısayollar + gizli özellikler
       local rows = {}
-      for _, s in ipairs(require("shortcuts").list()) do
-        rows[#rows + 1] = dom.tr({},
-          dom.td({ class = "py-1 pr-4" },
-            dom.kbd({ class = "px-2 py-0.5 border border-[var(--border)] rounded text-sm" },
-              s.key == "Escape" and "Esc" or s.key)),
-          dom.td({ class = "py-1 text-[var(--fg-muted)]" }, s.description))
+      local function kbd(k)
+        return dom.td({ class = "py-1 pr-4 whitespace-nowrap" },
+          dom.kbd({ class = "px-2 py-0.5 border border-[var(--border)] rounded text-sm" },
+            k == "Escape" and "Esc" or k))
       end
-      rows[#rows + 1] = dom.tr({},
-        dom.td({ class = "py-1 pr-4" },
-          dom.kbd({ class = "px-2 py-0.5 border border-[var(--border)] rounded text-sm" }, "Esc")),
-        dom.td({ class = "py-1 text-[var(--fg-muted)]" }, "Pencereyi kapat"))
-      return dom.table({ class = "text-sm" },
-        dom.caption({ class = "sr-only" }, "Kısayollar"),
-        dom.tbody({}, rows))
+      for _, g in ipairs(require("shortcuts").grouped()) do
+        rows[#rows + 1] = dom.tr({}, dom.th({ scope = "colgroup", colspan = "2",
+          class = "text-left pt-3 pb-1 font-semibold" }, g.label))
+        for _, s in ipairs(g.items) do
+          rows[#rows + 1] = dom.tr({}, kbd(s.key), dom.td({ class = "py-1 text-[var(--fg-muted)]" }, s.description))
+        end
+      end
+      rows[#rows + 1] = dom.tr({}, kbd("Esc"), dom.td({ class = "py-1 text-[var(--fg-muted)]" }, "Pencereyi kapat"))
+      local hidden = {}
+      for _, t in ipairs(require("tips").for_where("help")) do
+        hidden[#hidden + 1] = dom.li({ class = "py-0.5" }, t.text)
+      end
+      return dom.div({ class = "grid gap-4 md:grid-cols-2 text-sm max-h-[70vh] overflow-auto" },
+        dom.table({ class = "text-sm self-start" },
+          dom.caption({ class = "sr-only" }, "Kısayollar"),
+          dom.tbody({}, rows)),
+        dom.section({ ["aria-labelledby"] = "help-hidden" },
+          dom.h3({ id = "help-hidden", class = "font-semibold pt-3 pb-1" }, "Gizli özellikler"),
+          dom.ul({ class = "list-disc pl-5 text-[var(--fg-muted)]" }, dom.list(hidden)),
+          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-3" },
+            "Tek tuş kısayollarını Profil sayfasından kapatabilirsiniz.")))
     end,
   }
   changed()

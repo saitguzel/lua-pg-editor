@@ -47,6 +47,9 @@
 ## 6. Rate Limit & DoS
 
 - [ ] `login` 5/dk, `query` 30/dk per connection (query_rate_limit dict).
+- [ ] F30: `RATE_LIMIT_RPS` prod'da > 0 (varsayılan 10 r/s, burst 20) — `execute`/`csv` IP başına 429 `RATE_LIMITED`.
+- [ ] F30: `QUERY_STATEMENT_TIMEOUT_MS` ≤ 30000 ve `QUERY_TIMEOUT_MS` ondan küçük değil (açılış logunda uyarı yok).
+- [ ] F30: hedef bağlantılar salt okunur rol ile (operations.md §8); bağlantı testinde `read_only=true` → kartta `RO` rozeti.
 - [ ] `QUERY_ROW_LIMIT_MAX` 50000 clamp, `QUERY_MAX_BYTES` 100KB, `CSV_MAX_ROWS` 100k.
 - [ ] `DB_POOL_SIZE` × `worker_processes` × `replicas` ≤ `max_connections-10` (00 §11 #5).
 - [ ] `TARGET_POOL_SIZE` 5, `TARGET_POOL_MAX` 32 LRU → harici DB DoS yok.

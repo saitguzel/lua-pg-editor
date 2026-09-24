@@ -94,15 +94,64 @@ local function column_def(pg, schema, name, c)
   return def
 end
 
+local function lit(s) return "'" .. tostring(s):gsub("'", "''") .. "'" end
+
+-- F25: iliski olmayan nesneler icin CREATE; detail = target_schema_repo.object_detail ciktisi (saf, DB'siz)
+function _M.create_other_script(kind, schema, name, detail)
+  local full, d = qname(schema, name), detail or {}
+  if kind == "sequence" then
+    local parts = { "CREATE SEQUENCE " .. full }
+    if d.data_type then parts[#parts + 1] = "    AS " .. d.data_type end
+    if d.start then parts[#parts + 1] = "    START WITH " .. d.start end
+    if d.increment then parts[#parts + 1] = "    INCREMENT BY " .. d.increment end
+    if d.min then parts[#parts + 1] = "    MINVALUE " .. d.min end
+    if d.max then parts[#parts + 1] = "    MAXVALUE " .. d.max end
+    if d.cache then parts[#parts + 1] = "    CACHE " .. d.cache end
+    if d.cycle then parts[#parts + 1] = "    CYCLE" end
+    if d.owned_by then parts[#parts + 1] = "    OWNED BY " .. d.owned_by end
+    return table.concat(parts, "\n") .. ";"
+  elseif kind == "type_enum" then
+    local labels = {}
+    for i, l in ipairs(d.labels or {}) do labels[i] = lit(l) end
+    return "CREATE TYPE " .. full .. " AS ENUM (" .. table.concat(labels, ", ") .. ");"
+  elseif kind == "type_composite" then
+    local attrs = {}
+    for i, a in ipairs(d.attributes or {}) do attrs[i] = "    " .. q(a.name) .. " " .. a.type end
+    return "CREATE TYPE " .. full .. " AS (\n" .. table.concat(attrs, ",\n") .. "\n);"
+  elseif kind == "type_range" then
+    return "CREATE TYPE " .. full .. " AS RANGE (\n    subtype = " .. tostring(d.subtype)
+      .. (d.collation and (",\n    collation = " .. d.collation) or "") .. "\n);"
+  elseif kind == "domain" then
+    local out = "CREATE DOMAIN " .. full .. " AS " .. tostring(d.base_type)
+    if d.default then out = out .. "\n    DEFAULT " .. d.default end
+    if d.not_null then out = out .. "\n    NOT NULL" end
+    for _, c in ipairs(d.constraints or {}) do out = out .. "\n    CONSTRAINT " .. c end
+    return out .. ";"
+  elseif kind == "extension" then
+    return "CREATE EXTENSION IF NOT EXISTS " .. q(name) .. " SCHEMA " .. q(schema)
+      .. (d.version and (" VERSION " .. lit(d.version)) or "") .. ";"
+  end
+  return nil, { message = "bu nesne turu icin CREATE uretilmiyor: " .. tostring(kind) }
+end
+
 -- CREATE: tablo (codd bicimi) ya da view/matview tanimi
 function _M.create_script(pg, schema, name, kind, columns)
   local full = qname(schema, name)
   if kind == "view" or kind == "matview" then
     local res, err = pg:query("SELECT pg_get_viewdef($1::regclass, true) AS def", full)
     if not res then return nil, err end
-    return "-- " .. _M.drop_script(schema, name, kind) .. "\nCREATE " .. SQL_TYPE[kind] .. " " .. full .. " AS\n"
+    local out = "-- " .. _M.drop_script(schema, name, kind) .. "\nCREATE " .. SQL_TYPE[kind] .. " " .. full .. " AS\n"
       .. (res[1] and res[1].def or "SELECT ...;")
+    if kind == "matview" then
+      local idx = pg:query("SELECT pg_get_indexdef(i.indexrelid) AS def FROM pg_index i"
+        .. " WHERE i.indrelid = $1::regclass", full) or {}
+      for _, ix in ipairs(idx) do out = out .. "\n" .. ix.def .. ";" end
+    end
+    return out
   end
+  -- F25: foreign table → SERVER + OPTIONS
+  local foreign = kind == "foreign" and (pg:query([[SELECT s.srvname, ft.ftoptions FROM pg_foreign_table ft
+    JOIN pg_foreign_server s ON s.oid = ft.ftserver WHERE ft.ftrelid = $1::regclass]], full) or {})[1] or nil
   local lines = {}
   for _, c in ipairs(columns) do lines[#lines + 1] = column_def(pg, schema, name, c) end
   local cons = pg:query([[SELECT conname, pg_get_constraintdef(oid, true) AS def FROM pg_constraint
@@ -110,13 +159,24 @@ function _M.create_script(pg, schema, name, kind, columns)
   for _, con in ipairs(cons) do lines[#lines + 1] = "    CONSTRAINT " .. q(con.conname) .. " " .. con.def end
   local meta = (pg:query([[SELECT pg_get_userbyid(c.relowner) AS owner, t.spcname AS tablespace
     FROM pg_class c LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace WHERE c.oid = $1::regclass]], full) or {})[1] or {}
+  local tail = ")" .. (meta.tablespace and ("\nTABLESPACE " .. q(meta.tablespace)) or "")
+  if foreign then
+    local opts = {}
+    for i, o in ipairs(type(foreign.ftoptions) == "table" and foreign.ftoptions or {}) do
+      local k, v = tostring(o):match("^([^=]+)=(.*)$")
+      opts[i] = k and (q(k) .. " " .. lit(v)) or lit(o)
+    end
+    tail = ")\nSERVER " .. q(foreign.srvname)
+      .. (#opts > 0 and ("\nOPTIONS (" .. table.concat(opts, ", ") .. ")") or "")
+  end
+  local sql_type = SQL_TYPE[kind] or "TABLE"
   local out = {
-    "-- DROP TABLE IF EXISTS " .. full .. ";",
+    "-- DROP " .. sql_type .. " IF EXISTS " .. full .. ";",
     "",
-    "CREATE TABLE IF NOT EXISTS " .. full,
+    "CREATE " .. sql_type .. " IF NOT EXISTS " .. full,
     "(",
     table.concat(lines, ",\n"),
-    ")" .. (meta.tablespace and ("\nTABLESPACE " .. q(meta.tablespace)) or "") .. ";",
+    tail .. ";",
   }
   if meta.owner then out[#out + 1] = "\nALTER TABLE IF EXISTS " .. full .. "\n    OWNER to " .. q(meta.owner) .. ";" end
   -- constraint'e bagli olmayan indexler (PK/UNIQUE constraint indexleri yukarida tanimli)

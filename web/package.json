@@ -19,6 +19,7 @@
     "@codemirror/view": "^6.26.0",
     "@lezer/highlight": "^1.2.4",
     "canvas-confetti": "^1.9.3",
+    "sql-formatter": "^15.9.0",
     "wasmoon": "^1.16.0"
   },
   "devDependencies": {

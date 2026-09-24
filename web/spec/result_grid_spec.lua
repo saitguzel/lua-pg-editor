@@ -1,0 +1,25 @@
+-- F28: sonuç grid'i saf yardımcıları — sayfa hesapları ve komut mesajı
+require("helper")
+local grid = require("components.result_grid")
+
+describe("result_grid sayfalama", function()
+  it("page_count / page_slice", function()
+    assert.equal(44, grid.page_count(4312, 100))
+    assert.equal(1, grid.page_count(0, 100))
+    local first, last = grid.page_slice(4312, 44, 100)
+    assert.equal(4301, first); assert.equal(4312, last)
+    first, last = grid.page_slice(4312, 99, 100) -- taşan sayfa son sayfaya kırpılır
+    assert.equal(4301, first); assert.equal(4312, last)
+    first, last = grid.page_slice(0, 1, 100)
+    assert.equal(1, first); assert.equal(0, last)
+  end)
+end)
+
+describe("result_grid.command_message", function()
+  it("DML satır sayısı, DDL tamamlandı", function()
+    assert.equal("INSERT: 3 satır etkilendi", grid.command_message("INSERT", 3))
+    assert.equal("CREATE TABLE tamamlandı", grid.command_message("CREATE TABLE", 0))
+    assert.equal("0 satır etkilendi", grid.command_message("affected", 0))
+    assert.equal("2 satır etkilendi", grid.command_message(nil, 2))
+  end)
+end)

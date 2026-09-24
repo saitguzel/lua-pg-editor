@@ -76,6 +76,12 @@ function layout.render(state, dispatch, content, title)
           }, icons.get(open and "panel-left" or "menu", "w-5 h-5")),
           dom.span({ class = "text-lg font-semibold truncate" }, "pgLua")),
         dom.div({ class = "flex items-center gap-2 md:gap-3" },
+          -- F29: görünür yardım butonu (kısayollar + gizli özellikler); ? tuşu ile aynı modal
+          dom.button({
+            type = "button", class = "btn btn-ghost btn-icon btn-sm", ["aria-label"] = "Yardım",
+            title = "Yardım ve kısayollar (?)",
+            onclick = function() require("components.modal").help() end,
+          }, icons.get("help", "w-4 h-4")),
           theme_toggle.render_compact(state, dispatch),
           dom.a({ href = "#/profile", class = "text-sm text-[var(--fg-muted)] hover:underline truncate max-w-40",
             ["aria-current"] = state.route.name == "profile" and "page" or nil }, user.email or "Profil"),

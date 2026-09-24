@@ -18,6 +18,8 @@ wrk -t4 -c50  -d30s --latency -s api/bench/login.lua       "$BASE" | tee "$OUT/l
 wrk -t4 -c100 -d30s --latency -s api/bench/connections_list.lua  "$BASE" | tee "$OUT/connections_list.txt"
 wrk -t4 -c64 -d30s --latency -s api/bench/query_execute.lua "$BASE" | tee "$OUT/query_execute.txt"
 wrk -t4 -c64 -d30s --latency -s api/bench/table_browser.lua "$BASE" | tee "$OUT/table_browser.txt"
+# F30 hedef: /categories cache hit p95 <10 ms, /objects?category= p95 <80 ms
+wrk -t4 -c32 -d15s --latency -s api/bench/schema_categories.lua "$BASE" | tee "$OUT/schema_categories.txt"
 wrk -t2 -c50  -d15s --latency "$BASE/api/v1/health"                | tee "$OUT/health.txt"
 # Hata orani %0 olmali: 2xx disi status ve socket hatasi varsa basarisiz
 if grep -E "^status [^2][0-9]{2}:|Non-2xx|Socket errors" "$OUT"/*.txt; then

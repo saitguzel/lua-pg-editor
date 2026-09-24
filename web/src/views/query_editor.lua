@@ -9,12 +9,14 @@ local editor = require("editor")
 local protocol = require("pg_shared.protocol")
 local storage = require("storage")
 local icons = require("icons")
+local sql_guard = require("pg_shared.sql_guard")
 
 local _M = {}
 _M.title = "Sorgu Editörü"
 _M.layout = true
 
 local DEFAULT_ROW_LIMIT = 1000
+local MAX_ROW_LIMIT = 50000 -- sunucu tavanı QUERY_ROW_LIMIT_MAX (validation: 1–50000); "Tümünü getir" bunu kullanır
 local SESSION_KEY, MAX_TABS, MAX_SQL_BYTES = "query_session", 32, 256 * 1024
 
 local editor_handles = {} -- tab.id -> CodeMirror handle
@@ -48,6 +50,12 @@ function _M.auto_title(sql)
   return t
 end
 
+-- F27: kullanıcı ad verdiyse o, yoksa SQL'den otomatik başlık
+function _M.tab_title(tab)
+  if tab.title and tab.title ~= "" then return tab.title end
+  return _M.auto_title(sql_of(tab))
+end
+
 -- --- oturum: sekmeler localStorage'da (codd session restore) -------------------------
 local persist_pending = false
 local function persist()
@@ -58,7 +66,8 @@ local function persist()
     if i > MAX_TABS then break end
     local sql = sql_of(t)
     if #sql > MAX_SQL_BYTES then sql = sql:sub(1, MAX_SQL_BYTES) end
-    tabs[i] = { sql = sql, row_limit = t.row_limit, connection_id = t.connection_id, database = t.database }
+    tabs[i] = { sql = sql, row_limit = t.row_limit, connection_id = t.connection_id, database = t.database,
+      title = t.title }
   end
   storage.set(SESSION_KEY, { tabs = tabs, active = st.query.active_tab })
 end
@@ -87,7 +96,7 @@ local function restore_session()
   if type(saved) ~= "table" or type(saved.tabs) ~= "table" or #saved.tabs == 0 then return false end
   for _, t in ipairs(saved.tabs) do
     app.dispatch({ type = "QUERY_TAB_CREATED", sql = t.sql, connection_id = t.connection_id,
-      database = t.database, row_limit = t.row_limit })
+      database = t.database, row_limit = t.row_limit, title = type(t.title) == "string" and t.title or nil })
   end
   local active = tonumber(saved.active)
   if active and active >= 1 and active <= #saved.tabs then
@@ -166,14 +175,10 @@ local function sql_to_run(tab)
   return sql_of(tab)
 end
 
-local function run_query(tab)
-  if not tab then return end
-  if tab.status == "running" then app.toast("info", "Bir sorgu zaten çalışıyor"); return end
-  if not tab.connection_id or tab.connection_id == "" then app.toast("error", "Bağlantı seçin"); return end
-  local sql = sql_to_run(tab)
-  if not sql:match("%S") then app.toast("error", "SQL boş"); return end
+local function do_run(tab, sql, row_limit)
   app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { sql = sql_of(tab) } })
   app.dispatch({ type = "QUERY_RUN_REQUESTED", id = tab.id })
+  editor.highlight_error(editor_handles[tab.id], 0)
   run_seq = run_seq + 1
   local run_id = tostring(js.timer.now()) .. "-" .. run_seq
   run_ids[tab.id] = run_id
@@ -182,7 +187,7 @@ local function run_query(tab)
       connection_id = tab.connection_id,
       database = tab.database,
       sql = sql,
-      row_limit = tab.row_limit or DEFAULT_ROW_LIMIT,
+      row_limit = row_limit or tab.row_limit or DEFAULT_ROW_LIMIT,
       run_id = run_id,
     })
     run_ids[tab.id] = nil
@@ -190,11 +195,70 @@ local function run_query(tab)
       app.dispatch({ type = "QUERY_RUN_FAILED", id = tab.id, error = err })
       local db_msg = err.details and err.details.db_message
       app.toast("error", db_msg and ("Sorgu hatası: " .. tostring(db_msg)) or protocol.message(err.code))
+      -- F27: sözdizimi hatası konumu editörde vurgulanır (seçim çalıştırıldıysa konum seçime göredir)
+      local line = err.details and err.details.line
+      if line and sql == sql_of(tab) then editor.highlight_error(editor_handles[tab.id], line) end
       return
     end
     app.dispatch({ type = "QUERY_RUN_SUCCEEDED", id = tab.id, result = data })
     refresh_history(tab)
     if _M.changes_schema(sql) then load_completion(tab.connection_id, tab.database) end
+  end)
+end
+
+local DESTRUCTIVE_LABEL = { DROP = "DROP", TRUNCATE = "TRUNCATE", DELETE = "WHERE koşulsuz DELETE",
+  ALTER_DROP = "ALTER … DROP" }
+
+-- opts: { sql = çalıştırılacak metin (yoksa seçim/tümü), row_limit = tek seferlik limit }
+-- F27: yıkıcı ifade (DROP/TRUNCATE/WHERE'siz DELETE/ALTER … DROP) onay penceresinden geçer
+local function run_query(tab, opts)
+  opts = opts or {}
+  if not tab then return end
+  if tab.status == "running" then app.toast("info", "Bir sorgu zaten çalışıyor"); return end
+  if not tab.connection_id or tab.connection_id == "" then app.toast("error", "Bağlantı seçin"); return end
+  local sql = opts.sql or sql_to_run(tab)
+  if not sql:match("%S") then app.toast("error", "SQL boş"); return end
+  local danger = sql_guard.destructive_kind(sql)
+  if not danger then return do_run(tab, sql, opts.row_limit) end
+  app.spawn(function()
+    local ok = require("components.modal").confirm({ title = "Yıkıcı sorgu", danger = true, confirm_label = "Çalıştır",
+      message = "Bu sorgu " .. (DESTRUCTIVE_LABEL[danger.kind] or danger.kind) .. " içeriyor:\n" .. danger.statement
+        .. "\nÇalıştırılsın mı?" })
+    if ok then do_run(tab, sql, opts.row_limit) end
+  end)
+end
+
+-- Ctrl+Shift+Enter: yalnız seçili metni çalıştır; seçim yoksa bilgi ver
+function _M.run_selection()
+  local tab = active_tab()
+  if not tab then return false end
+  local h = editor_handles[tab.id]
+  local sel = h and editor.get_selection(h) or ""
+  if not sel:match("%S") then app.toast("info", "Önce bir SQL parçası seçin"); return true end
+  run_query(tab, { sql = sel })
+  return true
+end
+
+-- Ctrl+Shift+F: seçimi (yoksa tümünü) biçimle
+function _M.format_sql()
+  local tab = active_tab()
+  local h = tab and editor_handles[tab.id]
+  if not h then return false end
+  editor.format(h, function(ok, err)
+    if not ok then app.toast("error", "Biçimlendirme başarısız: " .. tostring(err)) end
+  end)
+  return true
+end
+
+-- sekme adı: boş → otomatik başlığa dön
+function _M.rename_tab(tab)
+  app.spawn(function()
+    local name = require("components.modal").prompt({ title = "Sekmeyi yeniden adlandır", label = "Sekme adı",
+      value = tab.title or "", confirm_label = "Kaydet",
+      validate = function(v) if #v > 40 then return "En fazla 40 karakter" end end })
+    if name == nil then return end
+    app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { title = name ~= "" and name or false } })
+    persist() -- açık eylem: debounce beklemeden yaz (hemen yenilemede ad kaybolmasın)
   end)
 end
 
@@ -416,6 +480,7 @@ function _M.new_tab() new_tab({ sql = "" }) end
 local function tab_menu(ev, t)
   local tabs = app.get_state().query.tabs
   require("components.context_menu").open(ev, {
+    { label = "Yeniden adlandır", onclick = function() _M.rename_tab(t) end },
     { label = "Kapat", onclick = function() close_tab(t.id) end },
     { label = "Diğerlerini kapat", disabled = #tabs < 2, onclick = function()
       for _, o in ipairs(app.get_state().query.tabs) do if o.id ~= t.id then close_tab(o.id) end end
@@ -449,6 +514,8 @@ local function mount_editor(tab, catalog)
       run_query(active_tab())
     end,
     onAi = function() _M.toggle_ai() end,
+    onRunSelection = function(v) current_sql[tab.id] = v; _M.run_selection() end,
+    onFormat = function() _M.format_sql() end,
   })
   if ok and h then
     editor_handles[tab.id] = h
@@ -463,11 +530,12 @@ local function render_tab_bar(dispatch, tabs, active_idx)
   local items = {}
   for i, t in ipairs(tabs) do
     local is_active = i == active_idx
-    local title = _M.auto_title(sql_of(t))
+    local title = _M.tab_title(t)
     items[#items + 1] = dom.div({ key = t.id, class = "flex items-center" },
       dom.button({
         type = "button", ["aria-current"] = is_active and "true" or nil, ["data-tab"] = "query",
-        title = title .. " (sağ tık: menü)",
+        title = title .. " (çift tık: yeniden adlandır · sağ tık: menü)",
+        ondblclick = function() _M.rename_tab(t) end,
         class = is_active
           and "inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--primary)] text-[var(--primary-fg)] rounded-l border border-[var(--primary)] max-w-56 truncate"
           or "inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--bg-elev)] border border-[var(--border)] rounded-l hover:bg-[var(--bg)] max-w-56 truncate",
@@ -552,10 +620,14 @@ local function render_toolbar(state, dispatch, tab)
       and icons.button({ icon = "stop", label = "İptal", variant = "danger", title = "Çalışan sorguyu iptal et (Esc)",
         onclick = function() _M.cancel_run() end })
       or icons.button({ icon = "play", label = "Çalıştır", variant = "primary",
-        title = has_selection[tab.id] and "Seçimi çalıştır (Ctrl+Enter)" or "Çalıştır (Ctrl+Enter)",
+        title = has_selection[tab.id] and "Seçimi çalıştır (Ctrl+Enter) · yalnız seçim: Ctrl+Shift+Enter"
+          or "Çalıştır (Ctrl+Enter) · yalnız seçim: Ctrl+Shift+Enter",
         onclick = function() run_query(tab) end }),
     icons.button({ icon = "eraser", label = "Temizle", title = "Ekranı temizle (Alt+L) — Ctrl+Z geri alır",
       disabled = running, onclick = function() _M.clear_screen() end }),
+    not editor_failed and icons.button({ icon = "list", label = "Formatla",
+      title = "Seçimi / tümünü biçimle (Ctrl+Shift+F) — Ctrl+Z geri alır",
+      onclick = function() _M.format_sql() end }) or nil,
     sep(),
     app.can("export.csv") and icons.button({ icon = "download", label = "Dışa aktar",
       title = "Dışa aktar (CSV / Excel / JSON)", disabled = no_conn, onclick = function() export_csv(tab) end }) or nil,
@@ -588,13 +660,24 @@ end
 
 local function render_result(tab)
   local grid = require("components.result_grid")
-  if tab.status == "error" and tab.error then return grid.render({ error = tab.error }) end
+  if tab.status == "error" and tab.error then
+    return grid.render({ error = tab.error }, {
+      on_goto_line = function(line) editor.highlight_error(editor_handles[tab.id], line); _M.focus_editor() end,
+    })
+  end
   if tab.result then
     return grid.render(tab.result, {
       row_limit = tab.row_limit or DEFAULT_ROW_LIMIT,
       on_row_limit = function(n)
         app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { row_limit = n } })
         schedule_persist()
+      end,
+      -- F27: "Tümünü getir" — aynı SQL sunucu tavanıyla (limit kalıcı olarak da yükselir)
+      max_row_limit = MAX_ROW_LIMIT,
+      on_fetch_all = function()
+        app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { row_limit = MAX_ROW_LIMIT } })
+        schedule_persist()
+        run_query(active_tab(), { row_limit = MAX_ROW_LIMIT })
       end,
       on_export = app.can("export.csv") and function() export_csv(tab) end or nil,
       scroll_class = "query-result-box",
@@ -605,7 +688,8 @@ local function render_result(tab)
       dom.span({ class = "skeleton h-3 w-3 rounded-full", ["aria-hidden"] = "true" }), "Sorgu çalışıyor…")
   end
   return dom.div({ class = "p-2 text-xs text-[var(--fg-muted)] border border-dashed border-[var(--border)] rounded" },
-    "Sorgu çalıştırıldığında sonuçlar burada görünecek.")
+    "Sorgu çalıştırıldığında sonuçlar burada görünecek. Ctrl+Enter çalıştırır · Ctrl+Shift+Enter yalnız seçimi · "
+    .. "hücreye sağ tık kopyalar.")
 end
 
 function _M.render(state, dispatch)
@@ -636,7 +720,7 @@ function _M.render(state, dispatch)
   else
     main = dom.div({ class = "p-6 text-center border border-dashed border-[var(--border)] rounded-[var(--radius)]" },
       dom.div({ class = "flex justify-center mb-2 text-[var(--fg-muted)]" }, icons.get("terminal", "w-8 h-8 opacity-60")),
-      dom.p({ class = "text-sm text-[var(--fg-muted)] mb-3" }, "Açık sorgu sekmesi yok."),
+      dom.p({ class = "text-sm text-[var(--fg-muted)] mb-3" }, "Açık sorgu sekmesi yok. Alt+N yeni sekme açar."),
       icons.button({ icon = "plus", label = "Yeni sekme", variant = "accent",
         onclick = function() new_tab({ sql = "" }) end }))
   end
@@ -663,6 +747,11 @@ end
 
 -- global kisayollar icin disaridan tetikleyiciler
 function _M.trigger_run() run_query(active_tab()) end
+-- F29: komut paleti "Dışa aktar"
+function _M.export_active()
+  local tab = active_tab()
+  if tab and app.can("export.csv") then export_csv(tab) end
+end
 
 -- calisan sorguyu sunucuda iptal et (pg_cancel_backend); sonuc istegi 57014 ile doner
 function _M.cancel_run()

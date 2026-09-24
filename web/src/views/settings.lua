@@ -15,6 +15,7 @@ local function per_page_options()
 end
 
 local ROW_LIMITS = { 100, 1000, 5000, 50000 }
+local RESULT_PAGE_SIZES = { 50, 100, 250, 500, 1000 } -- F28: sonuç grid'i istemci sayfalama
 
 -- yönetici: AI kartı verisi (izin yoksa ai_settings hiçbir şey yapmaz)
 function _M.enter() require("views.ai_settings").load() end
@@ -48,6 +49,12 @@ function _M.render(state, dispatch)
   local row_opts = {}
   for _, v in ipairs(ROW_LIMITS) do
     row_opts[#row_opts + 1] = dom.option({ value = tostring(v), selected = row_limit == v and "selected" or nil }, tostring(v))
+  end
+  local page_size = tonumber(storage.get("result_page_size", 100)) or 100
+  local page_opts = {}
+  for _, v in ipairs(RESULT_PAGE_SIZES) do
+    page_opts[#page_opts + 1] = dom.option({ value = tostring(v), selected = page_size == v and "selected" or nil },
+      tostring(v))
   end
 
   return dom.div({ class = "max-w-4xl space-y-6" },
@@ -84,7 +91,22 @@ function _M.render(state, dispatch)
               app.toast("success", "Varsayilan sorgu limiti " .. v .. " olarak kaydedildi")
             end,
           }, dom.list(row_opts)),
-          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" }, "Sorgu editoru icin varsayilan limit (100/1000/5000/50000)")))),
+          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" }, "Sorgu editoru icin varsayilan limit (100/1000/5000/50000)")),
+        dom.div({},
+          dom.label({ ["for"] = "settings-result-page", class = "block text-sm font-medium mb-1" },
+            "Sonuç sayfa boyutu"),
+          dom.select({
+            id = "settings-result-page",
+            class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
+            onchange = function(e)
+              local v = tonumber(e.value) or 100
+              storage.set("result_page_size", v)
+              app.toast("success", "Sonuç sayfa boyutu " .. v .. " olarak kaydedildi")
+            end,
+          }, dom.list(page_opts)),
+          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" },
+            "Sorgu sonucunda sayfa başına satır (50/100/250/500/1000); "
+              .. "kopyala ve dışa aktar tüm satırları kapsar")))),
     dom.section({ class = "space-y-2 p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)]" },
       dom.h2({ class = "font-semibold flex items-center gap-2" }, icons.get("eye", "w-4 h-4 text-[var(--primary)]"), "Görünüm"),
       dom.label({ class = "flex items-center gap-2 text-sm" },

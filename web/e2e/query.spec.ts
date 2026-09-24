@@ -68,6 +68,76 @@ test.describe("query", () => {
     await expect(page.locator("table").last().locator("thead th")).toHaveText(["iki"], { timeout: 10_000 });
   });
 
+  test("F27: yeniden adlandır, Ctrl+Shift+Enter yalnız seçim, yıkıcı onay, hata satırı, geçmişten çalıştır", async ({ page, request }) => {
+    const u = await create_user(request, "editor");
+    const token = await api_token(request, u.email, u.password);
+    await create_connection(request, token);
+    await login(page, u.email, u.password);
+    await page.goto("#/query");
+    await expect(page.locator(".cm-editor")).toBeVisible({ timeout: 10_000 });
+
+    // sekme yeniden adlandırma: çift tık → prompt → yenilemede korunur
+    await page.locator("button[data-tab='query']").first().dblclick();
+    await page.getByLabel("Sekme adı").fill("Raporum");
+    await page.getByRole("button", { name: "Kaydet" }).click();
+    await expect(page.locator("button[data-tab='query']").first()).toHaveText(/Raporum/);
+    await page.reload();
+    await expect(page.locator("button[data-tab='query']").first()).toHaveText(/Raporum/, { timeout: 10_000 });
+
+    // Ctrl+Shift+Enter: yalnız seçili satır çalışır (ikinci satır seçili → kolon "b")
+    await type_sql(page, "SELECT 1 AS a;\nSELECT 2 AS b");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Shift+Home");
+    await page.keyboard.press("ControlOrMeta+Shift+Enter");
+    await expect(page.locator("table").last().locator("thead th")).toHaveText(["b"], { timeout: 10_000 });
+
+    // yıkıcı onay: DROP → modal → İptal → çalışmaz
+    await type_sql(page, "DROP TABLE yok_tablo_xyz");
+    await page.getByRole("button", { name: "Çalıştır", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Yıkıcı sorgu" })).toBeVisible();
+    await page.getByRole("button", { name: "İptal" }).click();
+    await expect(page.getByRole("heading", { name: "Yıkıcı sorgu" })).toBeHidden();
+    await expect(page.locator("table").last().locator("thead th")).toHaveText(["b"]);
+
+    // hata konumu: 2. satırdaki sözdizimi hatası → rozet "satır 2" ve editörde vurgu
+    await type_sql(page, "SELECT 1\nFROMM t");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByRole("button", { name: "Hata konumu" })).toContainText(/satır 2/, { timeout: 10_000 });
+    await expect(page.locator(".cm-error-line")).toHaveCount(1);
+
+    // geçmişten tek tıkla çalıştır: popover → Çalıştır → sonuç
+    await page.getByRole("button", { name: "Geçmiş" }).click();
+    // en yeni kayıt hatalı sorgu; "SELECT 2 AS b" satırının kendi Çalıştır düğmesi
+    const pop = page.getByRole("dialog", { name: "Geçmiş" });
+    await pop.locator("li", { hasText: "SELECT 2 AS b" }).first().getByRole("button", { name: "Çalıştır" }).click();
+    await expect(page.locator("table").last().locator("thead th")).toHaveText(["b"], { timeout: 10_000 });
+  });
+
+  test("F28: sayfalama ve export diyaloğu formata göre alan gösterir", async ({ page, request }) => {
+    const u = await create_user(request, "editor");
+    const token = await api_token(request, u.email, u.password);
+    await create_connection(request, token);
+    await login(page, u.email, u.password);
+    await page.goto("#/query");
+    await expect(page.locator(".cm-editor")).toBeVisible({ timeout: 10_000 });
+    await type_sql(page, "SELECT g AS n FROM generate_series(1, 250) g");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(page.getByText(/1–100 \/ 250 satır/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("table").last().locator("tbody tr")).toHaveCount(100);
+    await page.getByRole("button", { name: "Son sayfa" }).click();
+    await expect(page.getByText(/201–250 \/ 250 satır/)).toBeVisible();
+    await expect(page.locator("table").last().locator("tbody tr")).toHaveCount(50);
+
+    await page.getByRole("button", { name: "Dışa aktar" }).click();
+    await expect(page.getByLabel("Ayraç")).toBeVisible();
+    await page.getByLabel("Format").selectOption("xlsx");
+    await expect(page.getByLabel("Ayraç")).toHaveCount(0);
+    await expect(page.getByLabel("Başlık satırı")).toBeVisible();
+    await page.getByLabel("Format").selectOption("json");
+    await expect(page.getByLabel("Başlık satırı")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  });
+
   test("sekme yönetimi: yeni sekme aç/kapat", async ({ page, request }) => {
     const u = await create_user(request, "editor");
     await login(page, u.email, u.password);

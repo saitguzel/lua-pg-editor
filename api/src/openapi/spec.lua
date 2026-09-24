@@ -158,13 +158,24 @@ local function components()
       type = "object",
       properties = {
         success = { type = "boolean" }, latency_ms = { type = "integer" }, pg_version = { type = "string" },
+        read_only = { type = "boolean", description = "default_transaction_read_only = on (F30 RO rozeti)" },
       },
     },
     DatabaseObject = {
       type = "object",
       properties = {
-        schema = { type = "string" }, name = { type = "string" }, kind = { type = "string", enum = { "table", "view" } },
+        schema = { type = "string" }, name = { type = "string" }, kind = { type = "string", enum = types.OBJECT_KINDS },
+        extra = { type = { "string", "null" }, description = "Kisa aciklama: fonksiyon imzasi, surum, temel tip..." },
       },
+    },
+    CategoryCount = {
+      type = "object",
+      properties = { category = { type = "string", enum = types.OBJECT_CATEGORIES }, count = { type = "integer" } },
+    },
+    ObjectListMeta = {
+      type = "object",
+      properties = { total = { type = "integer" }, limit = { type = "integer" }, offset = { type = "integer" },
+        has_more = { type = "boolean" } },
     },
     SchemaList = { type = "array", items = { type = "string" } },
     TableColumn = {
@@ -187,6 +198,13 @@ local function components()
         constraints = { type = "array", items = { type = "object" } },
         foreign_keys = { type = "array", items = { type = "object" } },
         triggers = { type = "array", items = { type = "object" } },
+        rules = { type = "array", items = { type = "object", properties = { name = { type = "string" },
+          event = { type = "string" }, is_instead = { type = "boolean" }, def = { type = "string" } } } },
+        policies = { type = "array", items = { type = "object", properties = { name = { type = "string" },
+          command = { type = "string" }, permissive = { type = "boolean" },
+          roles = { type = "array", items = { type = "string" } },
+          using_expr = { type = { "string", "null" } }, check_expr = { type = { "string", "null" } } } } },
+        detail = { type = { "object", "null" }, description = "Iliski olmayan nesne (sequence, type_*, domain, ...) detayi" },
         size_bytes = { type = { "integer", "null" } },
       },
     },
@@ -533,19 +551,38 @@ local function paths()
   p["/connections/{id}/schemas/{schema}/objects"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" } },
     get = op({
-      tags = { "schema" }, operationId = "listObjects", summary = "Tablo/view listele",
+      tags = { "schema" }, operationId = "listObjects",
+      summary = "Nesne listele (category verilirse kategori bazli, sayfali; yoksa tablo/view/matview/foreign)",
+      ["x-page-key"] = "schema.browser",
+      parameters = { qp("DatabaseQuery"),
+        { name = "category", ["in"] = "query", schema = { type = "string", enum = types.OBJECT_CATEGORIES } },
+        { name = "q", ["in"] = "query", schema = { type = "string", maxLength = 64 }, description = "Ad ile ILIKE" },
+        { name = "limit", ["in"] = "query", schema = { type = "integer", minimum = 1, maximum = 500, default = 200 } },
+        { name = "offset", ["in"] = "query", schema = { type = "integer", minimum = 0, default = 0 } } },
+      responses = { ["200"] = resp("Obje listesi", { type = "object", properties = {
+        data = { type = "array", items = ref("DatabaseObject") }, meta = ref("ObjectListMeta") } }) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED", "VALIDATION_FAILED" },
+    }),
+  }
+  p["/connections/{id}/schemas/{schema}/categories"] = {
+    parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" } },
+    get = op({
+      tags = { "schema" }, operationId = "listCategories", summary = "Kategori sayaclari (16 kategori, cache'li)",
       ["x-page-key"] = "schema.browser",
       parameters = { qp("DatabaseQuery") },
-      responses = { ["200"] = resp("Obje listesi", data_of({ type = "array", items = ref("DatabaseObject") })) },
-      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED" },
+      responses = { ["200"] = resp("Sayaclar", data_of({ type = "array", items = ref("CategoryCount") })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED", "VALIDATION_FAILED" },
     }),
   }
   p["/connections/{id}/objects/{schema}/{name}/structure"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/NamePath" } },
     get = op({
-      tags = { "schema" }, operationId = "getStructure", summary = "Yapi incele (kolon, index, FK, trigger)",
+      tags = { "schema" }, operationId = "getStructure",
+      summary = "Yapi incele (kolon, index, FK, trigger, rule, policy; iliski disi nesnede detail)",
       ["x-page-key"] = "structure.view",
-      parameters = { qp("DatabaseQuery") },
+      parameters = { qp("DatabaseQuery"),
+        { name = "kind", ["in"] = "query", schema = { type = "string", enum = types.OBJECT_KINDS },
+          description = "Ipucu; tur sunucuda tespit edilir" } },
       responses = { ["200"] = resp("Yapi", data_of(ref("TableStructure"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "CONNECTION_FAILED" },
     }),

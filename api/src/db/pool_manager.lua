@@ -33,8 +33,9 @@ local PgError = {
 local function parse_error(self, err_msg)
   local msg, data = pgmoon.Postgres.parse_error(self, err_msg)
   data = data or {}
+  -- position: hatanın sorgu metnindeki 1 tabanlı karakter konumu (sözdizimi hataları; F27)
   return setmetatable({ message = msg, code = data.code, constraint = data.constraint,
-                        detail = data.detail, table = data.table }, PgError)
+                        detail = data.detail, table = data.table, position = tonumber(data.position) }, PgError)
 end
 
 -- Hedef DB tip eslemesi: bytea hex metin kalir (ham ikili JSON'u bozar), numeric/int8 metin kalir
@@ -187,6 +188,14 @@ function _M.acquire(conn)
     end
     ngx.log(ngx.WARN, "hedef baglanti kurulamadi (", tostring(conn.id), " ", tostring(host), ":", tostring(port), "): ", tostring(err))
     return nil, { code = "CONNECTION_FAILED", message = "Baglanti kurulamadi", details = { db_message = tostring(err) }, __app_error = true }
+  end
+  -- F30: oturum ayari; keepalive'dan donen socket'te zaten set, yalnizca yeni acilan baglantida calisir
+  if pg.sock and pg.sock.getreusedtimes and pg.sock:getreusedtimes() == 0 then
+    local st_ms = cfg and cfg.query and cfg.query.statement_timeout_ms or 30000
+    local st_ok, st_err = pg:query("SET statement_timeout = " .. tostring(math.floor(st_ms)))
+    if not st_ok then
+      ngx.log(ngx.WARN, "statement_timeout ayarlanamadi (", tostring(conn.id), "): ", tostring(st_err))
+    end
   end
   -- LRU'ya dokun (varsa guncelle, yoksa ekle)
   pools_lru:set(conn.id, { pg = pg, touched = ngx.now(), conn_id = conn.id })

@@ -5,9 +5,26 @@ local config = require("config")
 
 local _M = {}
 
+-- pos: sql içinde 1 tabanlı karakter konumu → satır, sütun (1 tabanlı)
+function _M.line_col(sql, pos)
+  pos = tonumber(pos)
+  if not pos or pos < 1 or type(sql) ~= "string" then return nil end
+  local line, last_nl = 1, 0
+  for i in sql:sub(1, pos - 1):gmatch("()\n") do line, last_nl = line + 1, i end
+  return line, pos - last_nl
+end
+
+local map_target_error_code -- ileri bildirim
+
 local function map_target_error(err)
   local sqlstate = type(err) == "table" and err.code or nil
   local msg = type(err) == "table" and (err.message or tostring(err)) or tostring(err)
+  local out = map_target_error_code(sqlstate, msg)
+  if type(err) == "table" and err.position then out.details.position = err.position end
+  return out
+end
+
+map_target_error_code = function(sqlstate, msg)
   -- 42P01 undefined_table -> OBJECT_NOT_FOUND, 42601 syntax -> BAD_REQUEST
   if sqlstate == "42P01" then
     return { code = "OBJECT_NOT_FOUND", message = "Tablo veya view bulunamadi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
@@ -16,7 +33,14 @@ local function map_target_error(err)
   elseif sqlstate == "42601" or sqlstate == "42602" then
     return { code = "BAD_REQUEST", message = "SQL sozdizimi hatali", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate == "57014" then
-    return { code = "QUERY_FAILED", message = "Sorgu iptal edildi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
+    -- F30: statement_timeout iptali ile kullanici iptalini (pg_cancel_backend) ayir
+    local message = "Sorgu iptal edildi"
+    if msg:find("statement timeout", 1, true) then
+      local cfg = config.get()
+      local sec = math.floor(((cfg and cfg.query and cfg.query.statement_timeout_ms) or 30000) / 1000)
+      message = "Sorgu zaman asimina ugradi (" .. sec .. " sn)"
+    end
+    return { code = "QUERY_FAILED", message = message, details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate == "42501" then
     return { code = "FORBIDDEN", message = "Yetki yok", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate then
@@ -71,9 +95,10 @@ local ROW_STATEMENTS = { select = true, with = true, values = true, table = true
 
 -- Satir donduren ifade: cursor ile yalnizca limit+1 satir cekilir (tum sonuc belleğe alinmaz).
 -- DECLARE kabul etmezse (SELECT INTO, veri degistiren WITH vb.) ifade dogrudan calisir.
+local CURSOR_PREFIX = "DECLARE _pgl_cur NO SCROLL CURSOR FOR "
 local function exec_limited(pg, stmt, limit)
   if not pg:query("BEGIN") then return nil end
-  if not pg:query("DECLARE _pgl_cur NO SCROLL CURSOR FOR " .. stmt) then
+  if not pg:query(CURSOR_PREFIX .. stmt) then
     pg:query("ROLLBACK")
     return nil
   end
@@ -96,7 +121,22 @@ local function exec_one(pg, stmt, limit, use_cursor)
   end
   local res, err = pg:query(stmt)
   if not res then return nil, map_target_error(err) end
-  return shape(res, limit)
+  local out = shape(res, limit)
+  -- satir dondurmeyen komut: grid mesaji icin komut adi ("INSERT", "CREATE TABLE")
+  if #out.columns == 0 then out.command = _M.command_tag(stmt) end
+  return out
+end
+
+local TWO_WORD = { create = true, alter = true, drop = true, truncate = true, comment = true, grant = true,
+  revoke = true, reindex = true, refresh = true }
+function _M.command_tag(stmt)
+  local s = sql_parser.strip_leading_sql_comments(stmt)
+  local a, b = s:match("^%s*(%a+)%s+(%a+)")
+  a = a or s:match("^%s*(%a+)")
+  if not a then return "affected" end
+  a = a:upper()
+  if b and TWO_WORD[a:lower()] then return a .. " " .. b:upper() end
+  return a
 end
 
 -- opts.in_transaction: cagiran zaten islem acti (READ ONLY export) → cursor'un kendi BEGIN/COMMIT'i
@@ -119,7 +159,16 @@ function _M.execute(pg, sql, row_limit, opts)
     local trimmed = stmt:match("^%s*(.-)%s*$")
     if trimmed ~= "" then
       local cur, err = exec_one(pg, trimmed, limit, use_cursor)
-      if not cur then return nil, err end
+      if not cur then
+        -- hata konumu: ifade metnindeki konumu tum SQL'e tasi (ifadenin ilk gecisi; tekrar eden ifadede ilk olan)
+        local pos = err.details and err.details.position
+        if pos then
+          local start = sql:find(trimmed, 1, true) or 1
+          err.details.position = pos + start - 1
+          err.details.line, err.details.column = _M.line_col(sql, err.details.position)
+        end
+        return nil, err
+      end
       last = cur
     end
   end

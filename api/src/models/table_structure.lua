@@ -64,6 +64,27 @@ local function normalize_trigger(row)
     state = TRIGGER_STATE[row.enabled] or row.enabled }
 end
 
+-- F25: RuleInfo { name, event, is_instead, def }
+-- PolicyInfo { name, command, permissive, roles, using_expr, check_expr }
+local function normalize_rule(row)
+  return { name = row.name, event = row.event, is_instead = truthy(row.is_instead), def = row.def }
+end
+
+local function normalize_policy(row)
+  return { name = row.name, command = row.command, permissive = row.permissive ~= false,
+    roles = type(row.roles) == "table" and row.roles or {},
+    using_expr = present(row.using_expr) and row.using_expr or nil,
+    check_expr = present(row.check_expr) and row.check_expr or nil }
+end
+
+-- cjson.null alanlari nil'e cevir (detail satiri dogrudan repo'dan gelir)
+local function strip_null(t)
+  if type(t) ~= "table" then return t end
+  local out = {}
+  for k, v in pairs(t) do if v ~= cjson.null then out[k] = v end end
+  return out
+end
+
 function _M.from_parts(object, parts)
   return {
     object = object,
@@ -72,6 +93,9 @@ function _M.from_parts(object, parts)
     constraints = parts.constraints or {},
     foreign_keys = parts.foreign_keys or {},
     triggers = parts.triggers or {},
+    rules = parts.rules or {},
+    policies = parts.policies or {},
+    detail = parts.detail,
     size_bytes = parts.size_bytes,
     table_bytes = parts.table_bytes,
     index_bytes = parts.index_bytes,
@@ -92,6 +116,10 @@ function _M.serialize(struct)
   for i, v in ipairs(struct.foreign_keys or {}) do fks[i] = normalize_fk(v) end
   local trigs = {}
   for i, v in ipairs(struct.triggers or {}) do trigs[i] = normalize_trigger(v) end
+  local rules = {}
+  for i, v in ipairs(struct.rules or {}) do rules[i] = normalize_rule(v) end
+  local policies = {}
+  for i, v in ipairs(struct.policies or {}) do policies[i] = normalize_policy(v) end
   return {
     object = struct.object,
     columns = cols,
@@ -99,6 +127,9 @@ function _M.serialize(struct)
     constraints = cons,
     foreign_keys = fks,
     triggers = trigs,
+    rules = rules,
+    policies = policies,
+    detail = struct.detail and strip_null(struct.detail) or nil,
     size_bytes = tonumber(struct.size_bytes),
     table_bytes = tonumber(struct.table_bytes),
     index_bytes = tonumber(struct.index_bytes),

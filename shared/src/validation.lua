@@ -591,6 +591,20 @@ local function init_schemas()
     new_name = _M.pg_name(),
   })
 
+  -- F25: sema referansi ve kategori bazli nesne listesi (?category=&q=&limit=&offset=)
+  _M.schemas.schema_ref = _M.schema({
+    schema = _M.pg_name(),
+    database = _M.optional(_M.pg_name()),
+  })
+  _M.schemas.schema_objects_query = _M.schema({
+    schema = _M.pg_name(),
+    database = _M.optional(_M.pg_name()),
+    category = _M.optional(_M.enum(types.OBJECT_CATEGORIES or {})),
+    q = _M.optional(_M.string({ min = 1, max = 64 })),
+    limit = _M.optional(_M.query_int({ min = 1, max = 500, default = 200 })),
+    offset = _M.optional(_M.query_int({ min = 0, default = 0 })),
+  })
+
   _M.schemas.query_execute = _M.schema({
     connection_id = _M.uuid(),
     database = _M.optional(_M.pg_name()),

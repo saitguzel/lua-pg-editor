@@ -50,6 +50,8 @@ local SPEC = {
   QUERY_ROW_LIMIT_DEFAULT = { type = "int", default = 1000, min = 1, max = 50000 },
   QUERY_ROW_LIMIT_MAX = { type = "int", default = 50000, min = 1, max = 50000 },
   QUERY_TIMEOUT_MS = { type = "int", default = 30000, min = 1000 },
+  QUERY_STATEMENT_TIMEOUT_MS = { type = "int", default = 30000, min = 1000 },
+  RATE_LIMIT_RPS = { type = "int", default = 10, min = 0, max = 1000 },
   QUERY_MAX_BYTES = { type = "int", default = 102400, min = 1024 },
   QUERY_HISTORY_RETENTION_DAYS = { type = "int", default = 30, min = 1 },
   CSV_MAX_ROWS = { type = "int", default = 100000, min = 1, max = 500000 },
@@ -164,6 +166,13 @@ local function cross_validate(c)
     if c.target.pool_size > c.target.pool_max then
       errs[#errs + 1] = "TARGET_POOL_SIZE, TARGET_POOL_MAX'tan buyuk olamaz"
     end
+  end
+  -- F30: socket timeout, statement_timeout'tan once dolarsa sunucu sorguyu surdurur, istemci kopar
+  if c.query and c.query.timeout_ms and c.query.statement_timeout_ms
+    and c.query.timeout_ms < c.query.statement_timeout_ms then
+    c.warnings[#c.warnings + 1] = "QUERY_TIMEOUT_MS, QUERY_STATEMENT_TIMEOUT_MS'den kucuk: "
+      .. "zaman asimi hatasi yerine baglanti kopmasi gorulur"
+    if ngx and ngx.log then ngx.log(ngx.WARN, c.warnings[#c.warnings]) end
   end
   -- ENCRYPTION_KEY base64 32 byte ise decode dene (ngx.decode_base64 varsa)
   if c.encryption_key and ngx and ngx.decode_base64 then
@@ -280,6 +289,7 @@ function _M.load(getenv)
     row_limit_default = values.QUERY_ROW_LIMIT_DEFAULT,
     row_limit_max = values.QUERY_ROW_LIMIT_MAX,
     timeout_ms = values.QUERY_TIMEOUT_MS,
+    statement_timeout_ms = values.QUERY_STATEMENT_TIMEOUT_MS,
     max_bytes = values.QUERY_MAX_BYTES,
     history_retention_days = values.QUERY_HISTORY_RETENTION_DAYS,
   }
@@ -289,6 +299,8 @@ function _M.load(getenv)
   c.completion = {
     cache_ttl = values.COMPLETION_CACHE_TTL,
   }
+  c.rate_limit_rps = values.RATE_LIMIT_RPS -- 0 = kapali (lua.conf access fazi)
+  c.warnings = {}
   -- expose raw for migrator
   c._raw = values
 

@@ -94,6 +94,12 @@ function _M.apply(entry)
   if st.route.name ~= "query" then router.navigate("#/query") end
 end
 
+-- F27: tek tıkla çalıştır — Uygula + çalıştır (yıkıcı onay akışı aynen uygulanır)
+function _M.run(entry)
+  _M.apply(entry)
+  require("views.query_editor").trigger_run()
+end
+
 function _M.clear(connection_id, database, after)
   app.spawn(function()
     if not require("components.modal").confirm({ title = "Geçmiş temizlensin mi?", danger = true, confirm_label = "Temizle",
@@ -126,6 +132,8 @@ local function entry_row(state, entry)
         entry.duration_ms and dom.span({}, tostring(entry.duration_ms) .. " ms") or nil,
         entry.truncated and dom.span({ class = "text-[var(--warning)] inline-flex items-center gap-0.5" }, icons.get("alert-circle", "w-3 h-3"), "limit") or nil)),
     dom.div({ class = "flex flex-col gap-1 shrink-0" },
+      icons.button({ icon = "play", label = "Çalıştır", variant = "primary", class = "btn-sm",
+        title = "Aktif sekmeye uygula ve çalıştır", onclick = function() _M.run(entry) end }),
       icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm", title = "Aktif sekmeye uygula",
         onclick = function() _M.apply(entry) end }),
       icons.button({ icon = "external-link", label = "Yeni sekmede aç", variant = "secondary", class = "btn-sm",
@@ -221,8 +229,12 @@ function _M.open_popover(tab)
                 _M.highlight(e.sql or "", search)),
               dom.time({ class = "text-[11px] text-[var(--fg-muted)]", datetime = e.executed_at },
                 when(e.executed_at))),
-            icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm",
-              onclick = function() modal.close("history-popover"); _M.apply(e) end }))
+            dom.div({ class = "flex flex-col gap-1 shrink-0" },
+              icons.button({ icon = "play", label = "Çalıştır", variant = "primary", class = "btn-sm",
+                title = "Aktif sekmeye uygula ve çalıştır",
+                onclick = function() modal.close("history-popover"); _M.run(e) end }),
+              icons.button({ icon = "check", label = "Uygula", variant = "accent", class = "btn-sm",
+                onclick = function() modal.close("history-popover"); _M.apply(e) end })))
         end
         return dom.div({ class = "space-y-2" },
           search_input("history-popover-search", load_popover),

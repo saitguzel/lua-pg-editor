@@ -2,8 +2,36 @@
 local dom = require("dom")
 local app = require("app")
 local icons = require("icons")
+local storage = require("storage")
+local tips = require("tips")
 
 local _M = { title = "Pano" }
+
+-- F29: kapatılabilir ipucu kartı — pg.tips.seen (id listesi), pg.tips.dismissed (kalıcı kapatma)
+local function tip_card()
+  if storage.get("tips.dismissed") == true then return nil end
+  local seen = storage.get("tips.seen", {})
+  local tip = tips.next_tip(seen, "dash")
+  if not tip then return nil end
+  local function mark_seen()
+    seen[#seen + 1] = tip.id
+    storage.set("tips.seen", seen)
+    app.schedule_render()
+  end
+  return dom.section({ ["aria-labelledby"] = "tip-title", ["data-tip"] = tip.id,
+    class = "p-4 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-elev)] flex items-start gap-3" },
+    dom.div({ class = "p-2 rounded bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] text-[var(--warning)]" },
+      icons.get("lightbulb", "w-5 h-5")),
+    dom.div({ class = "flex-1 min-w-0" },
+      dom.h2({ id = "tip-title", class = "text-sm font-semibold" }, "İpucu"),
+      dom.p({ class = "text-sm text-[var(--fg-muted)]" }, tip.text)),
+    dom.div({ class = "flex gap-1 shrink-0" },
+      icons.button({ icon = "arrow-right", label = "Sonraki", variant = "ghost", class = "btn-sm",
+        title = "Sonraki ipucu", onclick = mark_seen }),
+      icons.button({ icon = "x", label = "Kapat", variant = "ghost", class = "btn-sm", icon_only = true,
+        title = "İpuçlarını kapat",
+        onclick = function() storage.set("tips.dismissed", true); app.schedule_render() end })))
+end
 
 function _M.render(state, dispatch)
   local types = require("pg_shared.types")
@@ -27,6 +55,7 @@ function _M.render(state, dispatch)
   return dom.div({ class = "space-y-4" },
     dom.h1({ class = "text-2xl font-bold", tabindex = "-1" }, "Gösterge Paneli"),
     dom.p({ class = "text-[var(--fg-muted)]" }, "pgLua — PostgreSQL Web Editor · PAGES=" .. #types.PAGES),
+    tip_card(),
     empty and require("views.layout").empty_state({
       icon_svg = "plug", title = "Henüz bağlantı yok",
       text = "İlk PostgreSQL bağlantınızı ekleyin",

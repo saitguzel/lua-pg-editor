@@ -1,0 +1,25 @@
+-- F27: sorgu editörü saf yardımcıları — sekme başlığı (kullanıcı adı > otomatik), oturum kaydında title
+require("helper")
+local app = require("app")
+local qe = require("views.query_editor")
+
+describe("query_editor.tab_title", function()
+  it("kullanıcı adı varsa onu, yoksa SQL'den türetilmiş başlığı döner", function()
+    assert.equal("Raporum", qe.tab_title({ id = 1, title = "Raporum", sql = "select 1 from t" }))
+    assert.equal("select 1 from t", qe.tab_title({ id = 2, sql = "select 1 from t" }))
+    assert.equal("select 1 from t", qe.tab_title({ id = 3, title = "", sql = "select 1 from t" }))
+    assert.equal("Sorgu", qe.tab_title({ id = 4, sql = "" }))
+  end)
+end)
+
+describe("QUERY_TAB_CREATED title", function()
+  it("title verilmezse nil kalır (otomatik başlık), verilirse korunur", function()
+    local s = app.root_reducer(app.initial_state, { type = "QUERY_TAB_CREATED", sql = "select 1" })
+    assert.is_nil(s.query.tabs[1].title)
+    s = app.root_reducer(s, { type = "QUERY_TAB_CREATED", sql = "select 2", title = "Adlı" })
+    assert.equal("Adlı", s.query.tabs[2].title)
+    -- yeniden adlandırmada boş → false ile alan silinir
+    s = app.root_reducer(s, { type = "QUERY_TAB_UPDATED", id = s.query.tabs[2].id, patch = { title = false } })
+    assert.is_nil(s.query.tabs[2].title)
+  end)
+end)

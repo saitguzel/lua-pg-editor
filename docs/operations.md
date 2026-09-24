@@ -134,3 +134,27 @@ Uyarılar (öneri):
 - `AUDIT_CLEANUP_HOUR=3` UTC → log cleanup. `VACUUM (ANALYZE) audit_logs;` büyük ilk silmeden sonra.
 - `QUERY_HISTORY_RETENTION_DAYS=30` → history cleanup aynı pencerede.
 - `VACUUM FULL audit_logs` yalnızca `maintenance` penceresinde (tablo kilitler).
+
+## 8. Hedef DB: Salt Okunur Rol (F30, öneri)
+
+Editörden bağlanılan hedef veritabanları için yazma yetkisi olmayan bir rol tanımlayın; bağlantıyı bu rolle kaydedin.
+Uygulama zorlamaz; bağlantı testi `read_only=true` döndürünce kartta `RO` rozeti görünür.
+
+```sql
+CREATE ROLE pgeditor_ro LOGIN PASSWORD '…';
+GRANT CONNECT ON DATABASE app TO pgeditor_ro;
+GRANT USAGE ON SCHEMA public TO pgeditor_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO pgeditor_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO pgeditor_ro;
+ALTER ROLE pgeditor_ro SET default_transaction_read_only = on;
+```
+
+Zaman aşımı ve oran sınırı (F30):
+
+| Env | Etki |
+|---|---|
+| `QUERY_STATEMENT_TIMEOUT_MS` | Her yeni hedef bağlantıda `SET statement_timeout`; aşımda `57014` "Sorgu zaman aşımına uğradı (N sn)" |
+| `QUERY_TIMEOUT_MS` | Socket timeout; `QUERY_STATEMENT_TIMEOUT_MS`'den küçükse açılışta uyarı loglanır |
+| `RATE_LIMIT_RPS` | `query/execute` ve `query/csv` için IP başına r/s (burst 20); aşımda `429 RATE_LIMITED`, `Retry-After: 1`; `0` kapatır |
+
+Bench (`make bench`, `api/bench/schema_categories.lua`): `/categories` cache hit p95 < 10 ms, `/objects?category=` p95 < 80 ms hedefi.

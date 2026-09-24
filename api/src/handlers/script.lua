@@ -17,6 +17,13 @@ function _M.generate(self)
     return errors.respond(errors.new("VALIDATION_FAILED", "gecersiz kind", { kind={"gecersiz deger"} }))
   end
   local database = self.params.database or args.database
+  if database and database ~= "" then -- F25: database param'i da dogrulanir
+    local ok, ve = validation.validate(validation.schema({ database = validation.pg_name() }), { database = database })
+    if not ok then return errors.respond(errors.validation(ve)) end
+    database = ok.database
+  else
+    database = nil
+  end
   local sql, serr = script_service.generate(ngx.ctx.identity, id, clean_ref.schema, clean_ref.name, kind, database)
   if not sql then return errors.respond(serr) end
   return { status = 200, json = { data = { sql = sql, kind = kind } } }

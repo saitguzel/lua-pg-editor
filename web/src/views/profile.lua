@@ -19,12 +19,6 @@ function _M.enter()
   end
 end
 
-local SHORTCUTS = {
-  { "?", "Kısayol yardımı" }, { "Ctrl+K", "Komut paleti" }, { "Ctrl+B", "Kenar çubuğu" },
-  { "Ctrl+Enter", "Sorguyu çalıştır" }, { "g d", "Panoya git" }, { "g c", "Bağlantılara git" }, { "g q", "Sorguya git" },
-  { "Esc", "Pencereyi kapat" },
-}
-
 local function card(title_id, title, ...)
   return dom.section({ class = "bg-[var(--bg-elev)] border border-[var(--border)] rounded-[var(--radius)] p-6 mb-6",
     ["aria-labelledby"] = title_id },
@@ -34,12 +28,18 @@ end
 function _M.render(state, dispatch)
   local user = state.auth.user or {}
 
+  -- F29: liste kayıt defterinden türetilir (yardım modalı ile aynı kaynak)
   local shortcut_rows = {}
-  for _, s in ipairs(SHORTCUTS) do
+  for _, g in ipairs(shortcuts.grouped()) do
     shortcut_rows[#shortcut_rows + 1] = dom.tr({},
-      dom.td({ class = "py-1 pr-4" }, dom.kbd({ class = "px-2 py-0.5 border border-[var(--border)] rounded text-sm" },
-        s[1])),
-      dom.td({ class = "py-1 text-[var(--fg-muted)]" }, s[2]))
+      dom.th({ scope = "colgroup", colspan = "2", class = "text-left pt-3 pb-1 font-semibold" }, g.label))
+    for _, s in ipairs(g.items) do
+      shortcut_rows[#shortcut_rows + 1] = dom.tr({},
+        dom.td({ class = "py-1 pr-4 whitespace-nowrap" },
+          dom.kbd({ class = "px-2 py-0.5 border border-[var(--border)] rounded text-sm" },
+            s.key == "Escape" and "Esc" or s.key)),
+        dom.td({ class = "py-1 text-[var(--fg-muted)]" }, s.description))
+    end
   end
 
   return dom.section({ class = "max-w-2xl", ["aria-labelledby"] = "profile-title" },

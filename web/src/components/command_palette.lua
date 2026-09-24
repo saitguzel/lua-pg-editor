@@ -53,6 +53,44 @@ local function filtered_tables(q)
   return out
 end
 
+-- F29: komutlar — mevcut kısayol eylemlerini çağırır; route verilenler önce sorgu sayfasına gider
+local function qe() return require("views.query_editor") end
+local COMMANDS = {
+  { label = "Yeni sekme", hint = "Alt+N", route = "query", run = function() qe().new_tab() end },
+  { label = "Seçimi çalıştır", hint = "Ctrl+Shift+Enter", route = "query", run = function() qe().run_selection() end },
+  { label = "Formatla", hint = "Ctrl+Shift+F", route = "query", run = function() qe().format_sql() end },
+  { label = "Dışa aktar", route = "query", run = function() qe().export_active() end },
+  { label = "Tema: açık / koyu / sistem", run = function()
+    local order = { light = "dark", dark = "system", system = "light" }
+    app.dispatch({ type = "THEME_SET", theme = order[app.get_state().ui.theme] or "system" })
+  end },
+  { label = "Yardım ve kısayollar", hint = "?", run = function() require("components.modal").help() end },
+  { label = "Nesne gezginini yenile", hint = "F5", run = function() require("views.schema_sidebar").reload() end },
+  { label = "Kenar çubuğunu daralt/genişlet", hint = "Ctrl+B",
+    run = function() app.dispatch({ type = "SIDEBAR_TOGGLED" }) end },
+}
+palette.COMMANDS = COMMANDS
+
+local function filtered_commands(q)
+  if not q or q == "" then return COMMANDS end
+  local lq, out = q:lower(), {}
+  for _, c in ipairs(COMMANDS) do
+    if c.label:lower():find(lq, 1, true) then out[#out + 1] = c end
+  end
+  return out
+end
+
+local function run_command(cmd)
+  palette.close()
+  if cmd.route and app.get_state().route.name ~= cmd.route then
+    router.navigate("#/" .. cmd.route)
+    js.timer.after(100, function() pcall(cmd.run) end) -- sayfa render edilsin
+    return
+  end
+  local ok, err = pcall(cmd.run)
+  if not ok then js.log("error", "palet komutu: " .. tostring(err)) end
+end
+
 function palette.open()
   if open then return end
   open = true
@@ -110,6 +148,8 @@ function palette.render(state)
   if open then
     local conns = filtered_connections(query)
     local tables = filtered_tables(query)
+    local commands = filtered_commands(query)
+    local total = #conns + #tables + #commands
 
     local items = {}
 
@@ -147,10 +187,22 @@ function palette.render(state)
       end
     end
 
+    items[#items + 1] = dom.div({ class = "text-xs font-semibold text-[var(--fg-muted)] px-2 py-1 mt-2" },
+      "Komutlar (" .. #commands .. ")")
+    for i, c in ipairs(commands) do
+      local is_sel = selected == #conns + #tables + i
+      items[#items + 1] = dom.button({
+        type = "button", ["data-command"] = is_sel and "1" or nil,
+        class = (is_sel and "bg-[var(--primary)] text-[var(--primary-fg)] " or "hover:bg-[var(--bg)] ")
+          .. "w-full text-left px-3 py-2 text-sm rounded flex items-center justify-between",
+        onclick = function() run_command(c) end,
+      }, dom.span({}, c.label), c.hint and dom.kbd({ class = "text-xs opacity-60" }, c.hint) or nil)
+    end
+
     local content = dom.div({ class = "space-y-2 min-w-[28rem]" },
       dom.input({
         type = "search",
-        placeholder = "Baglanti veya tablo ara…",
+        placeholder = "Bağlantı, tablo veya komut ara…",
         value = query,
         ["data-command"] = "1",
         class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)] text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]",
@@ -162,7 +214,7 @@ function palette.render(state)
         end,
         onkeydown = function(e)
           if e.key == "ArrowDown" then
-            selected = math.min(selected + 1, #conns + #tables)
+            selected = math.min(selected + 1, total)
             app.schedule_render()
             return true
           elseif e.key == "ArrowUp" then
@@ -172,13 +224,14 @@ function palette.render(state)
           elseif e.key == "Enter" then
             if conns[selected] then navigate_connection(conns[selected])
             elseif tables[selected - #conns] then navigate_table(tables[selected - #conns])
+            elseif commands[selected - #conns - #tables] then run_command(commands[selected - #conns - #tables])
             end
             return true
           elseif e.key == "Escape" then palette.close(); return true end
         end,
       }),
       dom.div({ class = "max-h-64 overflow-auto border border-[var(--border)] rounded p-1 space-y-0.5" }, dom.list(items)),
-      dom.div({ class = "text-xs text-[var(--fg-muted)] px-1" }, "↑↓ gezin, Enter sec, Esc kapat · Ctrl+K ile acilir"))
+      dom.div({ class = "text-xs text-[var(--fg-muted)] px-1" }, "↑↓ gezin, Enter seç, Esc kapat · Ctrl+K ile açılır"))
 
     dialog_vnode = require("components.modal").dialog("command-palette", "Komut paleti", content, palette.close, { class = "modal bg-[var(--bg-elev)] text-[var(--fg)] border border-[var(--border)] rounded-[var(--radius)] p-4 w-full max-w-xl" })
   end

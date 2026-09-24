@@ -28,6 +28,16 @@ function _M.generate(identity, connection_id, schema, name, kind, database)
   local pg, cid = acquire(conn_row, database)
   if not pg then return nil, cid end
   local ok, sql, serr = pcall(function()
+    local repo = require("repositories.target_schema_repo")
+    -- F25: iliski degil (sequence de pg_attribute satiri tasir, o yuzden once relkind bakilir) →
+    -- sequence/type/domain/extension CREATE (saf uretici + detay sorgusu)
+    if kind == "create" and not repo.object_kind(pg, schema, name) then
+      local other = repo.other_object_kind(pg, schema, name)
+      if not other then return nil, "bulunamadi" end
+      local detail, derr = repo.object_detail(pg, other, schema, name)
+      if derr then return nil, derr end
+      return target_script.create_other_script(other, schema, name, detail)
+    end
     local meta = require("services.table_browser_service").describe(pg, schema, name)
     if not meta then return nil, "bulunamadi" end
     if kind == "create" then return target_script.create_script(pg, schema, name, meta.kind, meta.columns) end

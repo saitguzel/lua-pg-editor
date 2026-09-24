@@ -37,6 +37,13 @@
 | 21 | [faz-21-frontend-ux-polish.md](fazlar/faz-21-frontend-ux-polish.md) | UX Polish | M | tema, klavye, a11y |
 | 22 | [faz-22-frontend-test-wasm-opt.md](fazlar/faz-22-frontend-test-wasm-opt.md) | Frontend Test & WASM Opt | M | busted, playwright, wasm opt |
 | 23 | [faz-23-deployment-dokumantasyon.md](fazlar/faz-23-deployment-dokumantasyon.md) | Deployment & Dokümantasyon | L | prod compose, TLS, backup |
+| 24 | [faz-24-spec-analizi-bosluk-haritasi.md](fazlar/faz-24-spec-analizi-bosluk-haritasi.md) | Spec Analizi & Boşluk Haritası | S | spec ↔ mevcut durum, mimari karar, F25–F30 haritası |
+| 25 | [faz-25-nesne-gezgini-backend.md](fazlar/faz-25-nesne-gezgini-backend.md) | Nesne Gezgini Backend | L | kategori sayaç/liste endpoint'leri, rules/policies, CREATE script |
+| 26 | [faz-26-nesne-gezgini-frontend.md](fazlar/faz-26-nesne-gezgini-frontend.md) | Nesne Gezgini Frontend | L | şema→kategori→nesne ağacı, lazy, hızlı filtre, sağ tık, detay |
+| 27 | [faz-27-sql-editor-gelistirmeleri.md](fazlar/faz-27-sql-editor-gelistirmeleri.md) | SQL Editör Geliştirmeleri | M | Ctrl+Shift+Enter, sekme adı, yıkıcı onay, hata pozisyonu, tümünü getir |
+| 28 | [faz-28-sonuc-paneli-ve-disa-aktarma.md](fazlar/faz-28-sonuc-paneli-ve-disa-aktarma.md) | Sonuç Paneli & Dışa Aktarma | M | export diyaloğu düzeltmesi, grid sayfalama/virtual scroll, DML mesajı |
+| 29 | [faz-29-ipuclari-kesfedilebilirlik.md](fazlar/faz-29-ipuclari-kesfedilebilirlik.md) | İpuçları & Keşfedilebilirlik | S | yardım butonu, gizli özellikler, ipucu kartı, palet komutları |
+| 30 | [faz-30-performans-zaman-asimi-guvenlik.md](fazlar/faz-30-performans-zaman-asimi-guvenlik.md) | Performans, Zaman Aşımı & Güvenlik | M | statement_timeout, nginx limit_req, read-only rol, bench |
 
 ## Diğer Dokümanlar
 
@@ -56,9 +63,13 @@
 ```
 F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13 → F14 → F15
                          └────────────────────────────→ F16 → F17 → F18 → F19 → F20 → F21 → F22 → F23
+
+F23 → F24 → F25 → F26 ─┐
+        ├──→ F27 ──────┼→ F29 → F30
+        └──→ F28 ──────┘
 ```
 
-Paralel: F16 frontend iskelet F5'ten sonra başlayabilir.
+Paralel: F16 frontend iskelet F5'ten sonra başlayabilir. F27 ve F28, F25'ten bağımsızdır; F26 ile paralel yürür.
 
 ## Katkı
 

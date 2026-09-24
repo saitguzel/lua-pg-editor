@@ -252,10 +252,13 @@ function _M.test_connection(identity, id)
     return nil, errors.new("CONNECTION_FAILED", "Baglanti kurulamadi", { db_message = tostring(acq_err and acq_err.message or acq_err) })
   end
   -- SELECT 1 test
-  local res, qerr = pg:query("SELECT version() AS pg_version")
+  -- F30: read_only → hedef rol salt okunur (default_transaction_read_only); UI'da RO rozeti
+  local res, qerr = pg:query("SELECT version() AS pg_version, "
+    .. "current_setting('default_transaction_read_only') = 'on' AS read_only")
   local latency = math.floor((ngx.now() - start) * 1000)
   local success = res ~= nil
   local pg_version = success and res[1] and res[1].pg_version or nil
+  local read_only = success and res[1] and res[1].read_only == true or false
   -- release
   pool_manager.release(id, pg, not success)
   connection_repo.update_test_result(id, success, latency)
@@ -268,7 +271,7 @@ function _M.test_connection(identity, id)
   if not success then
     return nil, errors.new("CONNECTION_FAILED", "Baglanti testi basarisiz", { db_message = tostring(qerr) })
   end
-  return { success = true, latency_ms = latency, pg_version = pg_version }
+  return { success = true, latency_ms = latency, pg_version = pg_version, read_only = read_only }
 end
 
 local function owned(identity, id)

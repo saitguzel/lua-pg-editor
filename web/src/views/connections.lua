@@ -105,6 +105,8 @@ end
 
 -- --- islemler --------------------------------------------------------------------
 
+local read_only_ids = {} -- F30: son testte salt okunur cikan baglantilar (id → true)
+
 local function test_connection(id)
   app.dispatch({ type = "CONNECTION_TESTING", id = id })
   local data, err = api.post("/connections/" .. router.urlencode(id) .. "/test", {})
@@ -117,7 +119,10 @@ local function test_connection(id)
   end
   app.dispatch({ type = "CONNECTION_TESTED", id = id })
   local latency = data and data.latency_ms or "?"
-  app.toast("success", "Bağlantı başarılı (" .. tostring(latency) .. " ms)")
+  -- ponytail: RO bilgisi oturum ici (kalici degil); kalici istenirse connections tablosuna kolon + migration
+  read_only_ids[id] = data and data.read_only == true or nil
+  app.toast("success", "Bağlantı başarılı (" .. tostring(latency) .. " ms"
+    .. (read_only_ids[id] and ", salt okunur rol" or "") .. ")")
   -- listeyi tazele (last_test guncellendi)
   reload()
 end
@@ -490,6 +495,7 @@ local function connection_card(conn, state)
         has_pw and badge("parola", "muted") or badge(conn.save_password and "parola yok" or "parola sorulur", "muted"),
         conn.ssh_enabled and badge(conn.ssh_host_trusted and "SSH" or "SSH: onay bekliyor", "muted") or nil,
         conn.ssl_mode and conn.ssl_mode ~= "disable" and badge("SSL " .. conn.ssl_mode, "muted") or nil,
+        read_only_ids[conn.id] and badge("RO", "success") or nil,
         last_at ~= nil and last_at ~= json.null and (
           last_ok and badge(tostring(last_lat or "?") .. " ms", "success") or badge("hatali", "muted")
         ) or nil)),

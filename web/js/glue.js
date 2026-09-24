@@ -1,8 +1,8 @@
 // Wasmoon yükleyici ve Lua ↔ JS köprüsü (F16/F17 - pg-editor).
 // BUNDLE_PATH / ADMIN_BUNDLE_PATH / WASM_PATH esbuild --define ile build sırasında enjekte edilir.
 import { LuaFactory } from "wasmoon";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, Decoration } from "@codemirror/view";
+import { EditorState, Compartment, StateField, StateEffect } from "@codemirror/state";
 // history → cmHistory: global window.history (router replaceState) gölgelenmesin
 import { history as cmHistory, defaultKeymap, historyKeymap } from "@codemirror/commands";
 // SQL dili, autocomplete ve renklendirme lazy: yalnizca editor acilinca dinamik import (F22)
@@ -99,8 +99,32 @@ function languageExtensions(catalog, snippets) {
   ];
 }
 
+// Hata satırı vurgusu (F27): sunucudan gelen details.line; belge değişince kalkar
+const setErrorLine = StateEffect.define();
+const errorLineField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    if (tr.docChanged) return Decoration.none;
+    for (const e of tr.effects) {
+      if (!e.is(setErrorLine)) continue;
+      if (!e.value || e.value > tr.state.doc.lines) return Decoration.none;
+      return Decoration.set([Decoration.line({ class: "cm-error-line" }).range(tr.state.doc.line(e.value).from)]);
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+// sql-formatter dinamik chunk (F27, isteğe bağlı): ilk kullanımda yüklenir
+let _formatter = null;
+async function ensureFormatter() {
+  if (!_formatter) _formatter = (await import("sql-formatter")).format;
+  return _formatter;
+}
+
 const editorTheme = EditorView.theme({
   "&": { backgroundColor: "var(--bg)", color: "var(--fg)", fontSize: "13px", minHeight: "180px" },
+  ".cm-error-line": { backgroundColor: "color-mix(in srgb, var(--danger) 15%, transparent)" },
   ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", caretColor: "var(--fg)" },
   ".cm-gutters": { backgroundColor: "var(--bg-elev)", color: "var(--fg-muted)", borderRight: "1px solid var(--border)" },
   ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "color-mix(in srgb, var(--primary) 8%, transparent)" },
@@ -371,7 +395,7 @@ const bridge = {
       const t = e.target;
       const typing = t?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t?.tagName);
       try {
-        if (fn(e.key, !!typing, e.ctrlKey || e.metaKey, e.altKey, t?.tagName || "") === true) e.preventDefault();
+        if (fn(e.key, !!typing, e.ctrlKey || e.metaKey, e.altKey, t?.tagName || "", e.shiftKey) === true) e.preventDefault();
       } catch (err) { console.error("[lua]", err); }
     }),
   },
@@ -403,8 +427,12 @@ const bridge = {
             editorTheme,
             // erişilebilirlik: CodeMirror content textbox'ına erişilebilir ad (aria-input-field-name)
             EditorView.contentAttributes.of({ "aria-label": opts.ariaLabel || "SQL sorgusu" }),
+            errorLineField,
             keymap.of([
+              // Ctrl+Shift+Enter: yalnız seçimi çalıştır (Mod-Enter'dan önce; F27)
+              { key: "Mod-Shift-Enter", run: () => { cb("onRunSelection", view.state.doc.toString()); return true; } },
               { key: "Mod-Enter", run: () => { cb("onRun", view.state.doc.toString()); return true; } },
+              { key: "Mod-Shift-f", run: () => { cb("onFormat"); return true; } },
               // Ctrl+I: varsayılan keymap'teki "üst düğümü seç" yerine AI çubuğu (callback yoksa varsayılana düşer)
               { key: "Mod-i", run: () => { const c = editorCallbacks.get(view._handleId); if (!c?.onAi) return false; cb("onAi"); return true; } },
               // codd: Tab 4 boşluk ekler (Esc ardından Tab odağı editörden çıkarır — CodeMirror tab focus mode)
@@ -500,6 +528,39 @@ const bridge = {
     onAi: (h, fn) => {
       const cbs = editorCallbacks.get(h);
       if (cbs) cbs.onAi = fn;
+    },
+    onRunSelection: (h, fn) => {
+      const cbs = editorCallbacks.get(h);
+      if (cbs) cbs.onRunSelection = fn;
+    },
+    onFormat: (h, fn) => {
+      const cbs = editorCallbacks.get(h);
+      if (cbs) cbs.onFormat = fn;
+    },
+    // hata satırını vurgular ve oraya kaydırır; line 0/null vurguyu kaldırır (F27)
+    highlightError: (h, line) => {
+      const view = editors.get(h);
+      if (!view) return;
+      const n = Number(line) || 0;
+      const spec = { effects: setErrorLine.of(n) };
+      if (n > 0 && n <= view.state.doc.lines) {
+        spec.selection = { anchor: view.state.doc.line(n).from };
+        spec.scrollIntoView = true;
+      }
+      view.dispatch(spec);
+    },
+    // seçimi (yoksa tüm belgeyi) PostgreSQL lehçesiyle biçimler; tek işlem → Ctrl+Z geri alır. cb(ok, err)
+    format: (h, cb) => {
+      const view = editors.get(h);
+      if (!view) { cb(false, "editör yok"); return; }
+      ensureFormatter().then((format) => {
+        const sel = view.state.selection.main;
+        const range = sel.empty ? { from: 0, to: view.state.doc.length } : { from: sel.from, to: sel.to };
+        const text = format(view.state.sliceDoc(range.from, range.to), { language: "postgresql", keywordCase: "upper" });
+        view.dispatch({ changes: { ...range, insert: text }, userEvent: "input.format" });
+        view.focus();
+        cb(true);
+      }).catch((e) => cb(false, String(e?.message || e)));
     },
     // editör DOM'da mı? (view yeniden çizilip kap değiştiyse Lua yeni editör açar)
     // containerId verilirse editör o kabın içinde olmalı (diff kabı başka sekmeye yeniden kullanmış olabilir)

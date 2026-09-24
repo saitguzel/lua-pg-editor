@@ -9,6 +9,10 @@ local _M = {}
 
 local TABLE_KINDS = { table = true, partitioned = true }
 _M.TABLE_KINDS = TABLE_KINDS
+-- rename/truncate/drop ve SELECT scripti yalnız ilişkiler için; CREATE scripti ayrıca sequence/type/domain için
+local RELATION_KINDS = { table = true, partitioned = true, view = true, matview = true, foreign = true }
+local CREATE_ONLY_KINDS = { sequence = true, type_base = true, type_composite = true, type_enum = true,
+  type_range = true, domain = true }
 
 local function obj_path(ctx)
   return "/connections/" .. router.urlencode(ctx.connection_id) .. "/objects/" .. router.urlencode(ctx.schema)
@@ -115,14 +119,24 @@ function _M.menu_items(ctx, extra)
   local qualified = '"' .. ctx.schema:gsub('"', '""') .. '"."' .. ctx.name:gsub('"', '""') .. '"'
   items[#items + 1] = { label = "Adı kopyala", onclick = function() copy(ctx.name) end }
   items[#items + 1] = { label = "Nitelikli adı kopyala", onclick = function() copy(qualified) end }
-  if TABLE_KINDS[ctx.kind] and app.can("script.generate") then
-    items[#items + 1] = { group = "Script" }
-    for _, k in ipairs({ { "create", "CREATE" }, { "select", "SELECT" }, { "insert", "INSERT" },
-                         { "update", "UPDATE" }, { "delete", "DELETE" } }) do
-      items[#items + 1] = { label = k[2], onclick = function() _M.script(ctx, k[1]) end }
+  if app.can("script.generate") then
+    local kinds
+    if TABLE_KINDS[ctx.kind] then
+      kinds = { { "create", "CREATE" }, { "select", "SELECT" }, { "insert", "INSERT" }, { "update", "UPDATE" },
+        { "delete", "DELETE" } }
+    elseif RELATION_KINDS[ctx.kind] then
+      kinds = { { "create", "CREATE" }, { "select", "SELECT" } }
+    elseif CREATE_ONLY_KINDS[ctx.kind] then
+      kinds = { { "create", "CREATE script'i göster" } }
+    end
+    if kinds then
+      items[#items + 1] = { group = "Script" }
+      for _, k in ipairs(kinds) do
+        items[#items + 1] = { label = k[2], onclick = function() _M.script(ctx, k[1]) end }
+      end
     end
   end
-  if app.can("object.actions") then
+  if app.can("object.actions") and RELATION_KINDS[ctx.kind] then
     items[#items + 1] = { separator = true }
     items[#items + 1] = { label = "Yeniden adlandır…", onclick = function() _M.rename(ctx) end }
     if TABLE_KINDS[ctx.kind] then
@@ -135,7 +149,8 @@ end
 
 -- --- fonksiyon / prosedür / trigger (oid ile) ----------------------------------------
 -- ctx = { connection_id, database, schema, name, kind = function|procedure|trigger, oid, args, table, enabled }
-_M.ROUTINE_LABEL = { ["function"] = "fonksiyon", procedure = "prosedür", trigger = "trigger" }
+_M.ROUTINE_LABEL = { ["function"] = "fonksiyon", procedure = "prosedür", trigger = "trigger",
+  aggregate = "aggregate fonksiyonu", window = "window fonksiyonu" }
 
 local function routine_path(ctx)
   return "/connections/" .. router.urlencode(ctx.connection_id) .. "/routines/" .. ctx.kind .. "/"

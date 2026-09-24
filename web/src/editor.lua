@@ -21,7 +21,19 @@ function editor.create(containerHandle, opts)
   if h and opts.onAi then
     js.editor.onAi(h, opts.onAi)
   end
+  if h and opts.onRunSelection then js.editor.onRunSelection(h, opts.onRunSelection) end
+  if h and opts.onFormat then js.editor.onFormat(h, opts.onFormat) end
   return h
+end
+
+-- hata satırını vurgula (line nil/0 → vurguyu kaldır); F27
+function editor.highlight_error(handle, line)
+  if handle then js.editor.highlightError(handle, line or 0) end
+end
+
+-- seçimi (yoksa tümünü) biçimle; cb(ok, err) — sql-formatter chunk'ı ilk kullanımda iner
+function editor.format(handle, cb)
+  if handle then js.editor.format(handle, cb or function() end) end
 end
 
 function editor.set_value(handle, value)

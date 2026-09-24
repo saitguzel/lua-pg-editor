@@ -25,19 +25,43 @@ function shortcuts.unregister_scope(scope)
   registry[scope] = nil
 end
 
--- yardim modali icin
+-- F29: yardım/profil listesi için scope etiketleri ve sırası; "editor" scope'u hiçbir route ile eşleşmez,
+-- yalnız CodeMirror içi tuşları listelemek için kullanılır (kayıt tetiklenmez).
+shortcuts.SCOPE_LABEL = { global = "Genel", query = "Sorgu editörü", editor = "Editör içi",
+  browse = "Tablo tarayıcı", structure = "Yapı" }
+local SCOPE_ORDER = { global = 1, query = 2, editor = 3, browse = 4, structure = 5 }
+
+-- yardim modali icin: { scope, label, key, description } — scope sırası SCOPE_ORDER, sonra tuş adı
 function shortcuts.list()
   local out = {}
   for scope, keys in pairs(registry) do
     for key, entry in pairs(keys) do
-      out[#out + 1] = { scope = scope, key = key, description = entry.description }
+      out[#out + 1] = { scope = scope, label = shortcuts.SCOPE_LABEL[scope] or scope, key = key,
+        description = entry.description }
     end
   end
   table.sort(out, function(a, b)
+    local oa, ob = SCOPE_ORDER[a.scope] or 99, SCOPE_ORDER[b.scope] or 99
+    if oa ~= ob then return oa < ob end
     if a.scope ~= b.scope then return a.scope < b.scope end
     return a.key < b.key
   end)
   return out
+end
+
+-- scope'a göre gruplu: { { scope, label, items = { {key, description}... } }, ... }
+function shortcuts.grouped()
+  local groups, by_scope = {}, {}
+  for _, s in ipairs(shortcuts.list()) do
+    local g = by_scope[s.scope]
+    if not g then
+      g = { scope = s.scope, label = s.label, items = {} }
+      by_scope[s.scope] = g
+      groups[#groups + 1] = g
+    end
+    g.items[#g.items + 1] = s
+  end
+  return groups
 end
 
 -- Aktif route'a gore bakilacak scope'lar

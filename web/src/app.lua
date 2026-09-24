@@ -171,7 +171,7 @@ local function reduce_query(s, a)
   if a.type == "QUERY_TAB_CREATED" then
     local tab = {
       id = s.next_id,
-      title = a.title or ("Sorgu " .. s.next_id),
+      title = a.title, -- kullanıcı adı; nil ise başlık SQL'den türetilir (query_editor.tab_title)
       sql = a.sql or "",
       result = nil,
       status = "idle",

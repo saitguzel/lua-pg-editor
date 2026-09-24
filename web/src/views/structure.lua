@@ -19,16 +19,19 @@ local TABS = {
   { key = "constraints", label = "Constraint'ler", item = "constraint" },
   { key = "foreign_keys", label = "Foreign Keys", item = "constraint" },
   { key = "triggers", label = "Trigger'lar", item = "trigger" },
+  { key = "rules", label = "Rules", read_only = true },
+  { key = "policies", label = "Policies", read_only = true },
   { key = "stats", label = "İstatistik" },
 }
 local active_tab = "columns"
+local tree = require("views.schema_tree")
 
 local function params()
   local cur = router.current() or {}
   local p, q = cur.params or {}, cur.query or {}
   local st = app.get_state()
   return { connection_id = q.connection_id or (st.connections.items[1] and st.connections.items[1].id) or "",
-    database = q.database, schema = p.schema or "public", name = p.name or "" }
+    database = q.database, schema = p.schema or "public", name = p.name or "", kind = q.kind }
 end
 
 local function base_path(c)
@@ -46,7 +49,8 @@ end
 local function load(c)
   if c.connection_id == "" or c.name == "" then return end
   app.dispatch({ type = "STRUCTURE_REQUESTED", selected = { schema = c.schema, name = c.name } })
-  local data, err = api.get(base_path(c) .. "/structure" .. db_q(c))
+  local data, err = api.get(base_path(c) .. "/structure"
+    .. db_q(c, c.kind and c.kind ~= "" and ("kind=" .. router.urlencode(c.kind)) or nil))
   if err then app.dispatch({ type = "STRUCTURE_FAILED", error = err }); return end
   app.dispatch({ type = "STRUCTURE_LOADED", data = data })
 end
@@ -127,7 +131,7 @@ local function section(c, tab, headers, rows)
   for i, r in ipairs(rows) do
     local cells = {}
     for j, v in ipairs(r.cells) do cells[j] = dom.td({ class = TD .. (j == 1 and " font-mono" or "") }, v) end
-    local function menu(e) item_menu(e, c, tab.item, r.name, r.read_only) end
+    local function menu(e) item_menu(e, c, tab.item, r.name, r.read_only or tab.read_only) end
     cells[#cells + 1] = dom.td({ class = TD .. " text-right" },
       dom.button({ type = "button", ["aria-label"] = r.name .. " menüsü", ["aria-haspopup"] = "menu",
         class = "px-2 text-[var(--fg-muted)] hover:text-[var(--fg)]", onclick = menu }, "⋯"))
@@ -188,7 +192,69 @@ local RENDER = {
     end
     return { "Ad", "Durum", "Fonksiyon", "Tanım" }, rows
   end,
+  rules = function(d)
+    local rows = {}
+    for i, r in ipairs(d.rules or {}) do
+      rows[i] = { name = r.name, cells = { r.name, tostring(r.event or ""), r.is_instead and "INSTEAD" or "ALSO",
+        mono(r.def) } }
+    end
+    return { "Ad", "Olay", "Tür", "Tanım" }, rows
+  end,
+  policies = function(d)
+    local rows = {}
+    for i, p in ipairs(d.policies or {}) do
+      rows[i] = { name = p.name, cells = { p.name, tostring(p.command or ""),
+        p.permissive == false and "RESTRICTIVE" or "PERMISSIVE", table.concat(p.roles or {}, ", "),
+        mono(p.using_expr), mono(p.check_expr) } }
+    end
+    return { "Ad", "Komut", "Tür", "Roller", "USING", "WITH CHECK" }, rows
+  end,
 }
+
+-- tablo dışı nesneler (sequence/type/domain/…): detail{} alanları — dizi → rozet/tablo, skaler → metin
+local function render_detail(d)
+  local det = d.detail or {}
+  local keys = {}
+  for k in pairs(det) do keys[#keys + 1] = k end
+  table.sort(keys)
+  if #keys == 0 then
+    return dom.p({ class = "p-6 text-center text-sm text-[var(--fg-muted)] border border-dashed "
+      .. "border-[var(--border)] rounded" }, "Detay yok")
+  end
+  local cells = {}
+  for i, k in ipairs(keys) do
+    local v = det[k]
+    local content
+    if type(v) == "table" and v[1] ~= nil and type(v[1]) == "table" then
+      -- nesne dizisi (attributes, constraints): anahtarlar başlık
+      local cols, seen = {}, {}
+      for _, row in ipairs(v) do
+        for ck in pairs(row) do if not seen[ck] then seen[ck] = true; cols[#cols + 1] = ck end end
+      end
+      table.sort(cols)
+      local head, body = {}, {}
+      for j, ck in ipairs(cols) do head[j] = dom.th({ scope = "col", class = TH }, ck) end
+      for j, row in ipairs(v) do
+        local tds = {}
+        for jj, ck in ipairs(cols) do tds[jj] = dom.td({ class = TD }, tostring(row[ck] == nil and "" or row[ck])) end
+        body[j] = dom.tr({}, dom.list(tds))
+      end
+      content = dom.table({ class = "w-full text-sm border-collapse" },
+        dom.thead({}, dom.tr({}, dom.list(head))), dom.tbody({}, dom.list(body)))
+    elseif type(v) == "table" and v[1] ~= nil then
+      local b = {}
+      for j, s in ipairs(v) do b[j] = badge(tostring(s)) end
+      content = dom.span({}, dom.list(b))
+    elseif type(v) == "table" then
+      content = mono(require("json").encode(v))
+    else
+      content = dom.span({ class = "font-mono text-sm break-all" }, tostring(v))
+    end
+    cells[i] = dom.div({ class = "p-3 border border-[var(--border)] rounded bg-[var(--bg-elev)]" },
+      dom.dt({ class = "text-xs text-[var(--fg-muted)]" }, k), dom.dd({ class = "mt-1" }, content))
+  end
+  return dom.dl({ class = "grid grid-cols-1 md:grid-cols-2 gap-3" }, dom.list(cells))
+end
 
 local function human_bytes(n)
   n = tonumber(n)
@@ -219,18 +285,24 @@ function _M.render(state, dispatch)
   local c = params()
   local s = state.structure
   local d = s.data or {}
-  local ctx = { connection_id = c.connection_id, database = c.database, schema = c.schema, name = c.name, kind = d.kind }
+  local kind = d.kind or c.kind
+  local ctx = { connection_id = c.connection_id, database = c.database, schema = c.schema, name = c.name, kind = kind }
+  local relation = kind == nil or tree.RELATION_KINDS[kind] == true
 
   local header = dom.div({ class = "flex items-center justify-between gap-2 flex-wrap" },
     dom.h1({ class = "text-xl font-bold flex items-center gap-2", tabindex = "-1" },
-      icons.get("table", "w-5 h-5 text-[var(--primary)]"),
+      icons.get(tree.ICON[kind] or "table", "w-5 h-5 text-[var(--primary)]"),
       dom.span({ class = "font-normal text-[var(--fg-muted)]" }, c.schema .. "."), c.name,
-      d.kind and d.kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" }, d.kind) or nil),
+      kind and kind ~= "table" and dom.span({ class = "ml-2 text-xs px-2 py-0.5 border rounded align-middle" },
+        tree.KIND_LABEL[kind] or kind) or nil),
     dom.div({ class = "flex gap-2 flex-wrap items-center" },
-      dom.a({ href = "#/browse/" .. router.urlencode(c.schema) .. "/" .. router.urlencode(c.name)
+      relation and dom.a({ href = "#/browse/" .. router.urlencode(c.schema) .. "/" .. router.urlencode(c.name)
         .. "?connection_id=" .. router.urlencode(c.connection_id) .. (c.database and ("&database=" .. router.urlencode(c.database)) or ""),
         class = "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[var(--border)] rounded hover:bg-[var(--bg-elev)] hover:border-[var(--primary)] transition-colors" },
-        icons.get("table", "w-4 h-4"), "İçerik"),
+        icons.get("table", "w-4 h-4"), "İçerik") or nil,
+      not relation and app.can("script.generate") and icons.button({ icon = "code", label = "CREATE script",
+        variant = "secondary", title = "CREATE script'ini yeni sekmede aç",
+        onclick = function() object_actions.script(ctx, "create") end }) or nil,
       icons.button({ icon = "refresh", label = "Yenile", variant = "secondary",
         title = "Yapıyı yenile", onclick = function() app.spawn(load, c) end }),
       d.kind and icons.button({ icon = "settings", label = "Eylemler", variant = "secondary",
@@ -247,12 +319,15 @@ function _M.render(state, dispatch)
         or tostring(s.error and s.error.message or "Yapı yüklenemedi")),
       icons.button({ icon = "refresh", label = "Tekrar dene", variant = "secondary",
         onclick = function() app.spawn(load, c) end }))
+  elseif not relation then
+    body = render_detail(d)
   else
     local tab_buttons, current = {}, TABS[1]
     for i, t in ipairs(TABS) do
       if t.key == active_tab then current = t end
       local count = t.key ~= "stats" and #(d[t.key] or {}) or nil
-      local tab_icon = ({ columns = "table", indexes = "list", constraints = "shield", foreign_keys = "link", triggers = "zap", stats = "info" })[t.key]
+      local tab_icon = ({ columns = "table", indexes = "list", constraints = "shield", foreign_keys = "link",
+        triggers = "zap", rules = "code", policies = "key", stats = "info" })[t.key]
       tab_buttons[i] = dom.button({ type = "button", ["aria-pressed"] = t.key == active_tab and "true" or "false",
         class = t.key == active_tab
           and "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-[var(--primary)] text-[var(--primary-fg)]"

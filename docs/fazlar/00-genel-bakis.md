@@ -229,7 +229,9 @@ Tüm hatalar:
 | `TARGET_POOL_MAX` | `32` | int | **yeni**: LRU havuz sayısı |
 | `QUERY_ROW_LIMIT_DEFAULT` | `1000` | int | **yeni**: `DEFAULT_QUERY_RESULT_ROW_LIMIT` |
 | `QUERY_ROW_LIMIT_MAX` | `50000` | int | sorgu sonuç limiti üst sınırı |
-| `QUERY_TIMEOUT_MS` | `30000` | int | **yeni**: hedef sorgu timeout |
+| `QUERY_TIMEOUT_MS` | `30000` | int | **yeni**: hedef sorgu socket timeout; `QUERY_STATEMENT_TIMEOUT_MS`'den küçükse açılışta uyarı |
+| `QUERY_STATEMENT_TIMEOUT_MS` | `30000` | int | F30: hedef oturumda `SET statement_timeout` (yeni bağlantıda bir kez); aşımda `57014` + "zaman aşımı" |
+| `RATE_LIMIT_RPS` | `10` | int | F30: `query/execute` + `query/csv` IP başına istek/sn (burst 20, nodelay); `0` kapalı |
 | `QUERY_MAX_BYTES` | `102400` | int | **yeni**: sorgu gövdesi max (100 KB) |
 | `QUERY_HISTORY_RETENTION_DAYS` | `30` | int | **yeni**: sorgu geçmişi temizliği |
 | `CSV_MAX_ROWS` | `100000` | int | **yeni**: CSV export limit |
@@ -320,7 +322,7 @@ Maskelenen alanlar: `password`, `password_hash`, `secret`, `token`, `pg_password
 |---|---|---|---|---|
 | `rbac_cache` | 1m | `rbac:<role>` → JSON | `RBAC_CACHE_TTL` | rbac_service |
 | `jwt_denylist` | 10m | `jti:<jti>` → `1` | kalan ömür | auth |
-| `rate_limit` | 10m | `login:<ip>:<email>` | 60 sn | auth_service |
+| `rate_limit` | 10m | `login:<ip>:<email>`; F30 `exec:<ip>` (resty.limit.req) | 60 sn / 1 sn | auth_service; lua.conf access |
 | `query_rate_limit` | 10m | `query:<user_id>:<connection_id>` | 60 sn | query_service |
 | `completion_cache` | 5m | `completion:<connection_id>:<database>` → JSON | `COMPLETION_CACHE_TTL` | query_service |
 | `job_locks` | 1m | `lock:*` | 3600 sn | jobs |
@@ -383,6 +385,17 @@ F0 ─► F1 ─► F2 ─► F3 ─► F4 ─► F5 ─► F6 ─► F7 ─► 
 - F9 (tablo tarayıcı) F7 ve F8 ister.
 - F10 (obje/script/csv) F7, F8, F9 ister.
 
+Spec uyum fazları (F24 analizinden türetildi):
+
+```
+F23 ─► F24 ─► F25 ─► F26 ─┐
+         ├──► F27 ────────┼─► F29 ─► F30
+         └──► F28 ────────┘
+```
+
+- F27 (editör) ve F28 (sonuç/export) F25'ten bağımsız; F26 ile paralel.
+- F29 (ipuçları) F27/F28'in kısayol ve grid davranışlarını listeler; F30 F25 endpoint'lerini bench'ler.
+
 ## 13. Faz Özet Tablosu
 
 | Faz | Ad | Doküman | Efor | Özet |
@@ -411,6 +424,13 @@ F0 ─► F1 ─► F2 ─► F3 ─► F4 ─► F5 ─► F6 ─► F7 ─► 
 | 21 | Frontend UX | faz-21 | M | tema, klavye, a11y, empty/skeleton, toast |
 | 22 | Frontend Test & Opt | faz-22 | M | busted (lua5.4), playwright, wasm opt |
 | 23 | Deployment | faz-23 | L | docker multi-stage, prod compose, TLS, backup |
+| 24 | Spec Analizi & Boşluk Haritası | faz-24 | S | spec ↔ mevcut durum, mimari karar, F25–F30 haritası |
+| 25 | Nesne Gezgini Backend | faz-25 | L | kategori sayaç/liste, rules/policies, CREATE script (view/seq/type/domain) |
+| 26 | Nesne Gezgini Frontend | faz-26 | L | şema→kategori→nesne ağacı, lazy, hızlı filtre, sağ tık, detay |
+| 27 | SQL Editör Geliştirmeleri | faz-27 | M | Ctrl+Shift+Enter, sekme adı, yıkıcı onay, hata pozisyonu, tümünü getir |
+| 28 | Sonuç Paneli & Dışa Aktarma | faz-28 | M | export diyaloğu düzeltmesi, sayfalama/virtual scroll, DML mesajı |
+| 29 | İpuçları & Keşfedilebilirlik | faz-29 | S | yardım butonu, gizli özellikler, ipucu kartı, palet komutları |
+| 30 | Performans, Zaman Aşımı & Güvenlik | faz-30 | M | statement_timeout, nginx limit_req, read-only rol, bench |
 
 Efor: S 0.5–1d, M 1–2d, L 2–4d (tek geliştirici).
 

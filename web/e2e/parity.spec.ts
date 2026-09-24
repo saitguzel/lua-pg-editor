@@ -106,7 +106,7 @@ test.describe("F7 sidebar ve nesne eylemleri", () => {
     await open_query(page);
     await set_sql(page, `CREATE TABLE ${t}(id serial primary key, x int); INSERT INTO ${t}(x) VALUES (1),(2); CREATE VIEW ${t}_v AS SELECT * FROM ${t}`);
     await page.keyboard.press("ControlOrMeta+Enter");
-    await expect(page.getByText("satır etkilendi")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Yenile", exact: true }).first().click();
     return t;
   }
@@ -154,7 +154,7 @@ test.describe("F8/F9 script ve yapı", () => {
       CREATE TRIGGER ${t}_tg BEFORE INSERT ON ${t} FOR EACH ROW EXECUTE FUNCTION ${t}_fn();
       CREATE VIEW ${t}_v AS SELECT note FROM ${t}`);
     await page.keyboard.press("ControlOrMeta+Enter");
-    await expect(page.getByText("satır etkilendi")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
     const conn = await page.getByLabel("Bağlantı", { exact: true }).inputValue();
     const token = await page.evaluate(() => JSON.parse(localStorage.getItem("pg.auth") || "{}").access_token);
     // test nesnelerini kaldir (baglanti silinmeden once calisir: cleanups LIFO)
@@ -187,7 +187,7 @@ test.describe("F8/F9 script ve yapı", () => {
     await page.getByRole("dialog").getByRole("button", { name: "CASCADE ile sil" }).click();
     await expect(page.getByRole("button", { name: "Kolonlar (3)" })).toBeVisible();
     // UPDATE scripti yeni sorgu sekmesinde
-    await page.getByRole("button", { name: "Eylemler ▾" }).click();
+    await page.getByRole("button", { name: /^Eylemler/ }).click();
     await page.getByRole("menuitem", { name: "UPDATE" }).click();
     await expect(page).toHaveURL(/#\/query/);
     await expect(page.locator(".cm-content")).toContainText(`UPDATE "public"."${t}"`);
@@ -233,7 +233,7 @@ test.describe("F10 bağlantılar", () => {
     // parola zorunlu rol (yerel pgeditor kullanicisi parolasiz kabul ediliyor)
     await set_sql(page, "DO $$ BEGIN CREATE ROLE e2e_pw LOGIN PASSWORD 'pw123'; EXCEPTION WHEN duplicate_object THEN NULL; END $$");
     await page.keyboard.press("ControlOrMeta+Enter");
-    await expect(page.getByText("satır etkilendi")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
     const conn = await api_conn(page, { save_password: false, username: "e2e_pw" });
     try {
     await page.goto("#/connections");
@@ -321,7 +321,7 @@ test.describe("Faz 2 fonksiyon / prosedür / trigger", () => {
       CREATE FUNCTION ${t}_tf() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN NEW.u := now(); RETURN NEW; END';
       CREATE TRIGGER ${t}_trg BEFORE UPDATE ON ${t} FOR EACH ROW EXECUTE FUNCTION ${t}_tf()`);
     await page.keyboard.press("ControlOrMeta+Enter");
-    await expect(page.getByText("satır etkilendi")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Yenile", exact: true }).first().click();
 
     const side = page.getByRole("complementary", { name: "Veritabanı nesneleri" });

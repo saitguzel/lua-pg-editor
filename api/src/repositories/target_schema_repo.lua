@@ -33,6 +33,217 @@ function _M.list_objects(pg, schema)
   return res
 end
 
+-- ---- F25: kategori bazli katalog ------------------------------------------------------------------
+-- Her kategori: from (pg_namespace n zorunlu), where (n.nspname = $1 sonrasi ek kosul), name (ILIKE/ORDER kolonu),
+-- select (name, kind, extra kolonlari). extra: kisa metin (imza, surum, temel tip...) ya da NULL.
+local TYPE_KIND = [[CASE t.typtype WHEN 'b' THEN 'type_base' WHEN 'c' THEN 'type_composite'
+  WHEN 'e' THEN 'type_enum' WHEN 'r' THEN 'type_range' END]]
+local function rel(kinds, kind_sql)
+  return { from = "pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace",
+    where = "c.relkind IN (" .. kinds .. ") AND NOT c.relispartition", name = "c.relname",
+    select = "c.relname AS name, " .. kind_sql .. " AS kind, NULL::text AS extra" }
+end
+-- Rutinlerde extra yapisal: oid/args/returns/language ayri kolon gelir, model bunlari extra{} altinda toplar
+-- (kenar cubugu rutin menusu /routines/:kind/:oid icin oid'ye ihtiyac duyar).
+local function proc(kinds, kind_sql)
+  return { from = "pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang",
+    where = "p.prokind IN (" .. kinds .. ") AND NOT EXISTS (SELECT 1 FROM pg_depend d"
+      .. " WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')",
+    name = "p.proname",
+    select = "p.proname AS name, " .. kind_sql .. " AS kind, '(' || pg_get_function_identity_arguments(p.oid) || ')'"
+      .. " AS extra, p.oid::bigint AS oid, pg_get_function_identity_arguments(p.oid) AS args,"
+      .. " pg_get_function_result(p.oid) AS returns, l.lanname AS language" }
+end
+local function simple(tbl, alias, ns_col, name_col, kind, extra)
+  return { from = "pg_" .. tbl .. " " .. alias .. " JOIN pg_namespace n ON n.oid = " .. alias .. "." .. ns_col,
+    where = "TRUE", name = alias .. "." .. name_col,
+    select = alias .. "." .. name_col .. " AS name, '" .. kind .. "' AS kind, " .. (extra or "NULL::text")
+      .. " AS extra" }
+end
+local FUNC_KIND = "CASE p.prokind WHEN 'a' THEN 'aggregate' WHEN 'w' THEN 'window' ELSE 'function' END"
+local CATEGORY = {
+  tables = rel("'r', 'p'", "CASE c.relkind WHEN 'p' THEN 'partitioned' ELSE 'table' END"),
+  views = rel("'v'", "'view'"),
+  matviews = rel("'m'", "'matview'"),
+  foreign_tables = rel("'f'", "'foreign'"),
+  sequences = rel("'S'", "'sequence'"),
+  functions = proc("'f', 'a', 'w'", FUNC_KIND),
+  procedures = proc("'p'", "'procedure'"),
+  -- dizi tipleri (typelem) ve tablo satir tipleri (typrelid + relkind<>'c') haric
+  types = { from = "pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace LEFT JOIN pg_class c ON c.oid = t.typrelid",
+    where = "t.typtype IN ('b', 'c', 'e', 'r') AND t.typelem = 0 AND (t.typrelid = 0 OR c.relkind = 'c')",
+    name = "t.typname", select = "t.typname AS name, " .. TYPE_KIND .. " AS kind, NULL::text AS extra" },
+  domains = { from = "pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace", where = "t.typtype = 'd'",
+    name = "t.typname",
+    select = "t.typname AS name, 'domain' AS kind, format_type(t.typbasetype, t.typtypmod) AS extra" },
+  extensions = simple("extension", "e", "extnamespace", "extname", "extension", "e.extversion"),
+  operators = simple("operator", "o", "oprnamespace", "oprname", "operator",
+    "o.oprleft::regtype::text || ' ' || o.oprname || ' ' || o.oprright::regtype::text"),
+  collations = simple("collation", "co", "collnamespace", "collname", "collation", "co.collprovider::text"),
+  fts_configs = simple("ts_config", "f", "cfgnamespace", "cfgname", "fts_config"),
+  fts_dicts = simple("ts_dict", "f", "dictnamespace", "dictname", "fts_dict"),
+  fts_parsers = simple("ts_parser", "f", "prsnamespace", "prsname", "fts_parser"),
+  fts_templates = simple("ts_template", "f", "tmplnamespace", "tmplname", "fts_template"),
+}
+local CATEGORY_ORDER = require("pg_shared.types").OBJECT_CATEGORIES
+
+-- ILIKE deseninde % ve _ kacislanir (ESCAPE '\')
+function _M.escape_like(s)
+  return (tostring(s):gsub("[\\%%_]", function(c) return "\\" .. c end))
+end
+
+-- Liste SQL'i: $1 = sema, $2 = %q% (q verilmisse); limit/offset dogrulanmis tamsayidir
+function _M.category_sql(category, with_q, limit, offset)
+  local c = CATEGORY[category]
+  if not c then return nil end
+  return "SELECT n.nspname AS schema, " .. c.select .. " FROM " .. c.from .. " WHERE n.nspname = $1 AND " .. c.where
+    .. (with_q and (" AND " .. c.name .. " ILIKE $2 ESCAPE '\\'") or "") .. " ORDER BY " .. c.name
+    .. (limit and (" LIMIT " .. math.floor(limit)) or "")
+    .. (offset and offset > 0 and (" OFFSET " .. math.floor(offset)) or "")
+end
+
+-- Sayac SQL'i: 16 kategori tek round-trip (UNION ALL), $1 = sema
+function _M.count_categories_sql()
+  local parts = {}
+  for i, cat in ipairs(CATEGORY_ORDER) do
+    local c = CATEGORY[cat]
+    parts[i] = "SELECT '" .. cat .. "' AS category, count(*) AS count FROM " .. c.from .. " WHERE n.nspname = $1 AND "
+      .. c.where
+  end
+  return table.concat(parts, "\nUNION ALL\n")
+end
+
+function _M.count_categories(pg, schema)
+  local res, err = pg:query(_M.count_categories_sql(), schema)
+  if not res then return nil, err end
+  local by = {}
+  for _, r in ipairs(res) do by[r.category] = tonumber(r.count) or 0 end
+  local out = {}
+  for i, cat in ipairs(CATEGORY_ORDER) do out[i] = { category = cat, count = by[cat] or 0 } end
+  return out
+end
+
+function _M.list_category(pg, category, schema, q, limit, offset)
+  local sql = _M.category_sql(category, q ~= nil, limit, offset)
+  if not sql then return nil, { message = "bilinmeyen kategori" } end
+  if q then return pg:query(sql, schema, "%" .. _M.escape_like(q) .. "%") end
+  return pg:query(sql, schema)
+end
+
+local RULE_EVENT = { ["1"] = "SELECT", ["2"] = "UPDATE", ["3"] = "INSERT", ["4"] = "DELETE" }
+function _M.list_rules(pg, schema, table)
+  local res, err = pg:query([[SELECT r.rulename AS name, r.ev_type::text AS ev_type, r.is_instead,
+      pg_get_ruledef(r.oid, true) AS def
+    FROM pg_rewrite r JOIN pg_class c ON c.oid = r.ev_class JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = $1 AND c.relname = $2 AND r.rulename <> '_RETURN' ORDER BY r.rulename]], schema, table)
+  if not res then return nil, err end
+  for _, r in ipairs(res) do r.event = RULE_EVENT[r.ev_type] or r.ev_type; r.ev_type = nil end
+  return res
+end
+
+local POLICY_CMD = { ["*"] = "ALL", r = "SELECT", a = "INSERT", w = "UPDATE", d = "DELETE" }
+function _M.list_policies(pg, schema, table)
+  local res, err = pg:query([[SELECT p.polname AS name, p.polcmd::text AS polcmd, p.polpermissive AS permissive,
+      CASE WHEN p.polroles = '{0}'::oid[] THEN ARRAY['public']::text[]
+           ELSE ARRAY(SELECT r.rolname::text FROM pg_roles r WHERE r.oid = ANY (p.polroles)) END AS roles,
+      pg_get_expr(p.polqual, p.polrelid, true) AS using_expr,
+      pg_get_expr(p.polwithcheck, p.polrelid, true) AS check_expr
+    FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = $1 AND c.relname = $2 ORDER BY p.polname]], schema, table)
+  if not res then return nil, err end
+  for _, r in ipairs(res) do r.command = POLICY_CMD[r.polcmd] or r.polcmd; r.polcmd = nil end
+  return res
+end
+
+-- Iliski olmayan nesnenin turu (sequence, type_*, domain, extension, operator, collation, fts_*); yoksa nil
+function _M.other_object_kind(pg, schema, name)
+  local res = pg:query([[
+    SELECT 'sequence' AS kind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = 'S'
+    UNION ALL SELECT CASE t.typtype WHEN 'd' THEN 'domain' ELSE ]] .. TYPE_KIND .. [[ END
+      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace LEFT JOIN pg_class c ON c.oid = t.typrelid
+      WHERE n.nspname = $1 AND t.typname = $2 AND t.typtype IN ('b', 'c', 'e', 'r', 'd') AND t.typelem = 0
+        AND (t.typrelid = 0 OR c.relkind = 'c')
+    UNION ALL SELECT 'extension' FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+      WHERE n.nspname = $1 AND e.extname = $2
+    UNION ALL SELECT 'operator' FROM pg_operator o JOIN pg_namespace n ON n.oid = o.oprnamespace
+      WHERE n.nspname = $1 AND o.oprname = $2
+    UNION ALL SELECT 'collation' FROM pg_collation co JOIN pg_namespace n ON n.oid = co.collnamespace
+      WHERE n.nspname = $1 AND co.collname = $2
+    UNION ALL SELECT 'fts_config' FROM pg_ts_config f JOIN pg_namespace n ON n.oid = f.cfgnamespace
+      WHERE n.nspname = $1 AND f.cfgname = $2
+    UNION ALL SELECT 'fts_dict' FROM pg_ts_dict f JOIN pg_namespace n ON n.oid = f.dictnamespace
+      WHERE n.nspname = $1 AND f.dictname = $2
+    UNION ALL SELECT 'fts_parser' FROM pg_ts_parser f JOIN pg_namespace n ON n.oid = f.prsnamespace
+      WHERE n.nspname = $1 AND f.prsname = $2
+    UNION ALL SELECT 'fts_template' FROM pg_ts_template f JOIN pg_namespace n ON n.oid = f.tmplnamespace
+      WHERE n.nspname = $1 AND f.tmplname = $2
+    LIMIT 1]], schema, name)
+  return res and res[1] and res[1].kind or nil
+end
+
+-- Iliski olmayan nesne detayi (kategoriye ozel alanlar); satir yoksa nil
+local DETAIL_SQL = {
+  sequence = [[SELECT s.data_type::text AS data_type, s.start_value AS start, s.increment_by AS increment,
+      s.min_value AS min, s.max_value AS max, s.cache_size AS cache, s.cycle, s.last_value,
+      (SELECT quote_ident(rn.nspname) || '.' || quote_ident(rc.relname) || '.' || quote_ident(a.attname)
+         FROM pg_depend d JOIN pg_class rc ON rc.oid = d.refobjid JOIN pg_namespace rn ON rn.oid = rc.relnamespace
+         JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+         WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype IN ('a', 'i') LIMIT 1) AS owned_by
+    FROM pg_sequences s JOIN pg_namespace n ON n.nspname = s.schemaname
+    JOIN pg_class c ON c.relnamespace = n.oid AND c.relname = s.sequencename
+    WHERE s.schemaname = $1 AND s.sequencename = $2]],
+  type_enum = [[SELECT ARRAY(SELECT e.enumlabel::text FROM pg_enum e WHERE e.enumtypid = t.oid ORDER BY e.enumsortorder)
+      AS labels
+    FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = $1 AND t.typname = $2]],
+  type_composite = [[SELECT a.attname::text AS name, format_type(a.atttypid, a.atttypmod) AS type
+    FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace JOIN pg_attribute a ON a.attrelid = t.typrelid
+    WHERE n.nspname = $1 AND t.typname = $2 AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum]],
+  type_range = [[SELECT r.rngsubtype::regtype::text AS subtype,
+      NULLIF(r.rngcollation::regcollation::text, '-') AS collation
+    FROM pg_range r JOIN pg_type t ON t.oid = r.rngtypid JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = $1 AND t.typname = $2]],
+  type_base = [[SELECT t.typlen AS length, t.typbyval AS by_value, t.typcategory::text AS category,
+      t.typinput::regproc::text AS input_function, t.typoutput::regproc::text AS output_function
+    FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = $1 AND t.typname = $2]],
+  domain = [[SELECT format_type(t.typbasetype, t.typtypmod) AS base_type, t.typnotnull AS not_null,
+      pg_get_expr(t.typdefaultbin, 0) AS default,
+      ARRAY(SELECT c.conname::text || ' ' || pg_get_constraintdef(c.oid, true) FROM pg_constraint c
+            WHERE c.contypid = t.oid ORDER BY c.conname) AS constraints
+    FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = $1 AND t.typname = $2]],
+  extension = [[SELECT e.extversion AS version, e.extrelocatable AS relocatable,
+      obj_description(e.oid, 'pg_extension') AS description
+    FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE n.nspname = $1 AND e.extname = $2]],
+  operator = [[SELECT o.oprleft::regtype::text AS left, o.oprright::regtype::text AS right,
+      o.oprresult::regtype::text AS result, o.oprcode::regproc::text AS function
+    FROM pg_operator o JOIN pg_namespace n ON n.oid = o.oprnamespace WHERE n.nspname = $1 AND o.oprname = $2 LIMIT 1]],
+  collation = [[SELECT co.collprovider::text AS provider, co.collcollate AS lc_collate, co.collctype AS lc_ctype
+    FROM pg_collation co JOIN pg_namespace n ON n.oid = co.collnamespace WHERE n.nspname = $1 AND co.collname = $2]],
+  fts_config = [[SELECT obj_description(f.oid, 'pg_ts_config') AS description, f.cfgparser::regproc::text AS parser
+    FROM pg_ts_config f JOIN pg_namespace n ON n.oid = f.cfgnamespace WHERE n.nspname = $1 AND f.cfgname = $2]],
+  fts_dict = [[SELECT obj_description(f.oid, 'pg_ts_dict') AS description, f.dictinitoption AS options
+    FROM pg_ts_dict f JOIN pg_namespace n ON n.oid = f.dictnamespace WHERE n.nspname = $1 AND f.dictname = $2]],
+  fts_parser = [[SELECT obj_description(f.oid, 'pg_ts_parser') AS description
+    FROM pg_ts_parser f JOIN pg_namespace n ON n.oid = f.prsnamespace WHERE n.nspname = $1 AND f.prsname = $2]],
+  fts_template = [[SELECT obj_description(f.oid, 'pg_ts_template') AS description
+    FROM pg_ts_template f JOIN pg_namespace n ON n.oid = f.tmplnamespace WHERE n.nspname = $1 AND f.tmplname = $2]],
+}
+_M.DETAIL_KINDS = DETAIL_SQL
+function _M.object_detail(pg, kind, schema, name)
+  local sql = DETAIL_SQL[kind]
+  if not sql then return nil end
+  local res, err = pg:query(sql, schema, name)
+  if not res then return nil, err end
+  if kind == "type_composite" then
+    local attrs = {}
+    for i, r in ipairs(res) do attrs[i] = { name = r.name, type = r.type } end
+    return { attributes = attrs }
+  end
+  local row = res[1]
+  if row and kind == "sequence" then row.cycle = row.cycle == true end
+  return row
+end
+
 -- Kolonlar (pg_catalog): tip, NULL, varsayilan, identity turu, generated ifadesi, PK, enum degerleri, collation.
 -- data_type format_type ciktisidir ("character varying(80)", "integer[]"); udt_name ham tip adi.
 function _M.list_columns(pg, schema, table)

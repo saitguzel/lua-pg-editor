@@ -99,6 +99,7 @@ _M.ROUTES = {
   -- schema & structure (F7)
   { method = "GET", path = "/connections/:id/schemas", handler = "handlers.schema#list_schemas", auth = true, page = "schema.browser", name = "schema_schemas" },
   { method = "GET", path = "/connections/:id/schemas/:schema/objects", handler = "handlers.schema#list_objects", auth = true, page = "schema.browser", name = "schema_objects" },
+  { method = "GET", path = "/connections/:id/schemas/:schema/categories", handler = "handlers.schema#list_categories", auth = true, page = "schema.browser", name = "schema_categories" },
   { method = "GET", path = "/connections/:id/objects/:schema/:name/structure", handler = "handlers.schema#structure", auth = true, page = "structure.view", name = "schema_structure" },
   { method = "GET", path = "/connections/:id/completion", handler = "handlers.schema#completion", auth = true, page = "schema.browser", name = "schema_completion" },
   -- query engine & history (F8)

@@ -55,7 +55,7 @@ function _M.drop(self)
   return { status = 200, json = { data = res } }
 end
 
--- Yapi ogeleri: /connections/:id/objects/:schema/:name/structure/:kind/:item[/rename]
+-- Yapı ogeleri: /connections/:id/objects/:schema/:name/structure/:kind/:item[/rename]
 local structure_service = require("services.structure_actions_service")
 
 local function structure_params(self)
@@ -109,7 +109,7 @@ local function routine_params(self, kinds)
   end
   -- oid: 32 bit işaretsiz tam sayı
   if type(oid) ~= "string" or not oid:match("^%d+$") or #oid > 10 or tonumber(oid) > 4294967295 then
-    return nil, errors.new("OBJECT_NOT_FOUND", "Obje bulunamadi")
+    return nil, errors.new("OBJECT_NOT_FOUND", "Obje bulunamadı")
   end
   local args = ngx.req.get_uri_args()
   return id, { kind = kind, oid = tonumber(oid), database = args.database,

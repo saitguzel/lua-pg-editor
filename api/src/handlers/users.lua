@@ -1,4 +1,4 @@
--- Kullanici handler'lari: list, get, create, update, delete (pg-editor F11)
+-- Kullanıcı handler'lari: list, get, create, update, delete (pg-editor F11)
 local validation = require("pg_shared.validation")
 local errors = require("middleware.error_handler")
 local user_service = require("services.user_service")
@@ -30,7 +30,7 @@ function _M.list()
 end
 
 function _M.get(self)
-  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanici bulunamadi")) end
+  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı")) end
   local user, err = user_service.get(ngx.ctx.identity, self.params.id)
   if not user then return errors.respond(err) end
   return { status = 200, json = { data = user } }
@@ -47,10 +47,10 @@ function _M.create()
 end
 
 function _M.update(self)
-  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanici bulunamadi")) end
+  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı")) end
   local input, err = errors.read_json_body()
   if not input then return errors.respond(err) end
-  -- PUT: tam guncelle; validation user_update (optional ama PUT'te de ayni schema)
+  -- PUT: tam güncelle; validation user_update (optional ama PUT'te de ayni schema)
   local clean, ferr = validation.validate(validation.schemas.user_update, input)
   if not clean then return errors.respond(errors.validation(ferr)) end
   -- PUT bos gonderilemez (en az bir alan) -> ancak user_update optional, bos obje de kabul? Faz doc PUT full update diyor
@@ -64,7 +64,7 @@ function _M.update(self)
 end
 
 function _M.patch(self)
-  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanici bulunamadi")) end
+  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı")) end
   local input, err = errors.read_json_body()
   if not input then return errors.respond(err) end
   local clean, ferr = validation.validate_partial(validation.schemas.user_update, input)
@@ -75,7 +75,7 @@ function _M.patch(self)
 end
 
 function _M.delete(self)
-  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanici bulunamadi")) end
+  if not valid_id(self) then return errors.respond(errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı")) end
   local ok, err = user_service.delete(ngx.ctx.identity, self.params.id)
   if not ok then return errors.respond(err) end
   return { status = 204, layout = false }

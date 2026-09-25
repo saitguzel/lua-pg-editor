@@ -2,7 +2,7 @@
 import { test, expect, Page } from "@playwright/test";
 import { login, ADMIN, API } from "./helpers";
 
-// Her test kendi gecici baglantisiyla (test DB'si) calisir; kullanicinin baglantilarina/verisine dokunmaz
+// Her test kendi gecici bağlantısiyla (test DB'si) calisir; kullanıcınin bağlantılarina/verisine dokunmaz
 let test_conn: { id: string } | null = null;
 async function open_query(page: Page) {
   await login(page, ADMIN.email, ADMIN.password);
@@ -157,7 +157,7 @@ test.describe("F8/F9 script ve yapı", () => {
     await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
     const conn = await page.getByLabel("Bağlantı", { exact: true }).inputValue();
     const token = await page.evaluate(() => JSON.parse(localStorage.getItem("pg.auth") || "{}").access_token);
-    // test nesnelerini kaldir (baglanti silinmeden once calisir: cleanups LIFO)
+    // test nesnelerini kaldir (bağlantı silinmeden once calisir: cleanups LIFO)
     cleanups.push(() => page.request.post(`${API}/query/execute`, { headers: { Authorization: `Bearer ${token}` },
       data: { connection_id: conn, sql: `DROP TABLE IF EXISTS ${t}, ${t}_p CASCADE; DROP FUNCTION IF EXISTS ${t}_fn()` } }));
     await page.goto(`#/structure/public/${t}?connection_id=${conn}`);
@@ -222,7 +222,7 @@ test.describe("F10 bağlantılar", () => {
         ssl_mode: "disable", ...body } });
     expect(res.status(), await res.text()).toBe(201);
     const conn = (await res.json()).data;
-    // test sonunda kaldir: sorgu sayfasi en yeni baglantiyi varsayilan secer, digerlerini etkilemesin
+    // test sonunda kaldir: sorgu sayfasi en yeni bağlantıyi varsayilan secer, digerlerini etkilemesin
     conn.remove = () => page.request.delete(`http://localhost:28180/api/v1/connections/${conn.id}`,
       { headers: { Authorization: `Bearer ${token}` } });
     return conn;
@@ -230,7 +230,7 @@ test.describe("F10 bağlantılar", () => {
 
   test("kaydedilmemiş parola sorulur; veritabanı seçici; kartta Sorgu bağlantıyı taşır", async ({ page }) => {
     await open_query(page);
-    // parola zorunlu rol (yerel pgeditor kullanicisi parolasiz kabul ediliyor)
+    // parola zorunlu rol (yerel pgeditor kullanıcısi parolasiz kabul ediliyor)
     await set_sql(page, "DO $$ BEGIN CREATE ROLE e2e_pw LOGIN PASSWORD 'pw123'; EXCEPTION WHEN duplicate_object THEN NULL; END $$");
     await page.keyboard.press("ControlOrMeta+Enter");
     await expect(page.getByText(/tamamlandı|satır etkilendi/)).toBeVisible({ timeout: 10_000 });
@@ -410,7 +410,7 @@ test.describe("Faz 3 taslaklar ve geçmiş araması", () => {
     await dialog.getByLabel("Taslak ara").fill("CREATE PROCEDURE");
     await page.keyboard.press("Enter");
     await expect(dialog).toHaveCount(0);
-    await expect(page.locator(".cm-content")).toContainText("CREATE OR REPLACE PROCEDURE sema.prosedur_adi");
+    await expect(page.locator(".cm-content")).toContainText("CREATE OR REPLACE PROCEDURE şema.prosedur_adi");
 
     // seçimi taslak olarak kaydet (Alt+S): önek ile
     await set_sql(page, `SELECT 42 AS ${p}_col`);

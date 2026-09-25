@@ -1,4 +1,4 @@
--- Hedef DB tablo tarayici: filtreli sayfali satir cekme, INSERT/UPDATE/DELETE, rid (satir kimligi)
+-- Hedef DB tablo tarayıcı: filtreli sayfali satır cekme, INSERT/UPDATE/DELETE, rid (satır kimligi)
 local cjson = require("cjson.safe")
 
 local _M = {}
@@ -110,7 +110,7 @@ function _M.update_rows(pg, schema, table_name, rid_where, values)
     params[#params + 1] = db_value(pg, val)
     sets[#sets + 1] = quote_ident(col) .. " = $" .. #params
   end
-  if #sets == 0 then return nil, "guncellenecek alan yok" end
+  if #sets == 0 then return nil, "güncellenecek alan yok" end
   local offset = #params
   local clause = rid_where.clause:gsub("%$(%d+)", function(n) return "$" .. (tonumber(n) + offset) end)
   for i, v in ipairs(rid_where.params) do params[offset + i] = v end
@@ -125,7 +125,7 @@ function _M.delete_rows(pg, schema, table_name, where_clause, where_params)
   return pg:query("DELETE FROM " .. qname .. " WHERE " .. where_clause, unpack(where_params or {}))
 end
 
--- PK'ya gore tek satir cek
+-- PK'ya gore tek satır cek
 function _M.fetch_one_by_rid(pg, schema, table_name, rid_where)
   local qname = quote_ident(schema) .. "." .. quote_ident(table_name)
   local res, err = pg:query("SELECT * FROM " .. qname .. " WHERE " .. rid_where.clause .. " LIMIT 1",
@@ -154,7 +154,7 @@ end
 
 -- → { clause, params } | nil, hata
 function _M.decode_rid(rid, pk_columns)
-  if not pk_columns or #pk_columns == 0 then return nil, "birincil anahtari olmayan tabloda satir duzenlenemez" end
+  if not pk_columns or #pk_columns == 0 then return nil, "birincil anahtari olmayan tabloda satır duzenlenemez" end
   local raw = type(rid) == "string" and unb64url(rid)
   local vals = raw and cjson.decode(raw)
   if type(vals) ~= "table" or #vals ~= #pk_columns then return nil, "gecersiz rid" end

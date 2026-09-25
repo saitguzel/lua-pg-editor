@@ -1,4 +1,4 @@
--- Kullanici repository: auth ve user yonetimi icin SQL sorgulari
+-- Kullanıcı repository: auth ve user yönetimi icin SQL sorgulari
 -- Tum sorgular parametreli ($n) ve db/query uzerinden.
 local query = require("db.query")
 

@@ -16,7 +16,7 @@ local NAV = {
   { href = "#/", label = "Pano", page_key = "dashboard", icon = "dashboard", routes = { dashboard = true } },
   { href = "#/connections", label = "Bağlantılar", page_key = "connections.list", icon = "plug",
     routes = { connections = true } },
-  -- tablolar sorgu/tarayici sayfalarindaki nesne kenar cubugundan acilir (codd)
+  -- tablolar sorgu/tarayıcı sayfalarindaki nesne kenar cubugundan acilir (codd)
   { href = "#/query", label = "Sorgu", page_key = "query.execute", icon = "terminal",
     routes = { query = true, browse = true, structure = true, query_history = true } },
   { href = "#/stats", label = "İstatistikler", page_key = "dashboard", icon = "activity",

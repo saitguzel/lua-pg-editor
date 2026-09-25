@@ -1,4 +1,4 @@
--- Baglanti modeli: DB satiri -> Lua tablosu, public serilestirme (parola maskeli)
+-- Bağlantı modeli: DB satıri -> Lua tablosu, public serilestirme (parola maskeli)
 local cjson = require("cjson.safe")
 
 local _M = {}

@@ -1,6 +1,6 @@
 -- F25 entegrasyon: kategori sayaclari, kategori listesi, rules/policies, detail ve CREATE script.
--- Hedef olarak meta DB'nin kendisi kullanilir (API konteynerinden DB_HOST); nesneler it_f25 semasinda
--- olusturulup silinir.
+-- Hedef olarak meta DB'nin kendisi kullanilir (API konteynerinden DB_HOST); nesneler it_f25 şemasinda
+-- oluşturulup silinir.
 -- YALNIZ izole test yiginda (make up.e2e / make test.integration) kosar: h.reset_db meta DB'yi TRUNCATE eder.
 local h = require("helpers.init")
 
@@ -100,7 +100,7 @@ describe("schema catalog (integration)", function()
     assert.truthy(create("email"):find('CREATE DOMAIN "it_f25"."email" AS text', 1, true))
   end)
 
-  it("DDL sonrasi kategori sayaci guncellenir (cache invalidation)", function()
+  it("DDL sonrasi kategori sayaci güncellenir (cache invalidation)", function()
     run("CREATE SEQUENCE it_f25.second_seq")
     local res = h.request("GET", base .. "/schemas/it_f25/categories", nil, admin.access_token)
     for _, c in ipairs(res.body.data) do if c.category == "sequences" then assert.equal(3, c.count) end end

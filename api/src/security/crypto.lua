@@ -1,4 +1,4 @@
--- AES-256-GCM baglanti parolasi sifreleme (pg-editor, F4)
+-- AES-256-GCM bağlantı parolasi sifreleme (pg-editor, F4)
 -- ENCRYPTION_KEY 32 byte; format iv:ct:tag (her biri base64)
 local config = require("config")
 local random = require("security.random")

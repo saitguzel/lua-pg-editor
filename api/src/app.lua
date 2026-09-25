@@ -15,7 +15,7 @@ router.register(app)
 -- 404: zincir dışında kalır; req_id ve X-Request-Id için logger çalıştırılır
 app.handle_404 = function(self)
   require("middleware.logger").handle(self)
-  return errors.respond(errors.new("NOT_FOUND", "Kaynak bulunamadi"))
+  return errors.respond(errors.new("NOT_FOUND", "Kaynak bulunamadı"))
 end
 
 app.handle_error = function(_, err, trace)

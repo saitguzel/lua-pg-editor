@@ -45,6 +45,8 @@ db.psql:
 # ---- Lint ve testler (F11 §9) ----
 lint:
 	$(TOOLS) luacheck $(LINT_PATHS)
+	@echo "guvenlik grep (faz-31/32) ..."
+	@! grep -rn --include='*.lua' 'where_raw' api/src shared/src 2>/dev/null | grep -v "spec" | grep -q . || (echo "HATA: where_raw yasak" >&2; grep -rn --include='*.lua' 'where_raw' api/src shared/src | grep -v spec >&2; exit 1)
 
 # test.integration veritabanini sifirlar: yalnizca izole test yigininda (make up.e2e) calisir, bu yuzden
 # `make test` kapsaminda degil

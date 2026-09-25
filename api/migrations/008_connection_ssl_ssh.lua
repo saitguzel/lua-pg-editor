@@ -1,7 +1,7 @@
 -- 008_connection_ssl_ssh: SSL modu ve SSH tuneli sirlari.
--- ssl_mode: disable | prefer | require (yeni baglantilar prefer; mevcutlar bugunku davranis: disable)
+-- ssl_mode: disable | prefer | require (yeni bağlantılar prefer; mevcutlar bugunku davranis: disable)
 -- ssh_secret_encrypted: SSH parolasi ya da ozel anahtar (crypto.encrypt); ssh_passphrase_encrypted: anahtar parolasi
--- ssh_known_host: kullanicinin onayladigi known_hosts satiri (ilk baglantida guven, TOFU)
+-- ssh_known_host: kullanıcınin onayladigi known_hosts satıri (ilk bağlantıda guven, TOFU)
 return {
   version = 8,
   name = "connection_ssl_ssh",

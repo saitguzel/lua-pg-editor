@@ -1,9 +1,9 @@
--- QueryResult DTO: sorgu calistirma sonucu
+-- QueryResult DTO: sorgu çalıştırma sonucu
 local cjson = require("cjson.safe")
 
 local _M = {}
 
--- exec_res: db/target/query.lua exec_one ciktisi (satirlar zaten kolon sirasinda dizi)
+-- exec_res: db/target/query.lua exec_one ciktisi (satırlar zaten kolon sirasinda dizi)
 function _M.from_execution(exec_res, duration_ms)
   if not exec_res then return nil end
   local rows = exec_res.rows or {}
@@ -31,7 +31,7 @@ function _M.serialize(res)
   }
 end
 
--- History serialize: query_history tablosu satiri
+-- History serialize: query_history tablosu satıri
 function _M.serialize_history(row)
   if not row then return nil end
   return {

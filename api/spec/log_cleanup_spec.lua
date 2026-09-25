@@ -71,7 +71,7 @@ describe("log_cleanup.should_run", function()
 end)
 
 describe("log_cleanup.run_once", function()
-  it("batch silme 2500 satir", function()
+  it("batch silme 2500 satır", function()
     remaining = 2500
     locked = true
     local r = assert(job.run_once())

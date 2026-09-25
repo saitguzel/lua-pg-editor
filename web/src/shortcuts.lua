@@ -101,7 +101,7 @@ end
 
 local function handle_ctrl(key, typing, tag)
   local lower = key:lower()
-  -- Ctrl/Cmd + Enter: sorgu calistir (editor odakli)
+  -- Ctrl/Cmd + Enter: sorgu çalıştır (editor odakli)
   if key == "Enter" then
     -- input'da calismaz: eger typing ve hedef INPUT ise engelle; contenteditable/editor ise izin ver
     if typing and tag == "INPUT" then return false end
@@ -122,7 +122,7 @@ local function handle_ctrl(key, typing, tag)
           return ok and prevent == true
         end
       end
-      -- fallback: query calistir action
+      -- fallback: query çalıştır action
       app.spawn(function()
         local tab = st.query.tabs[st.query.active_tab]
         if tab then
@@ -134,7 +134,7 @@ local function handle_ctrl(key, typing, tag)
       end)
       return true
     else
-      -- diger sayfalarda registry'de varsa calistir
+      -- diger sayfalarda registry'de varsa çalıştır
       for _, sc in ipairs(active_scopes()) do
         local entry = registry[sc] and registry[sc]["Ctrl+Enter"]
         if entry then
@@ -183,7 +183,7 @@ end
 -- Signature: key, typing, ctrl, alt, tag
 function shortcuts.handle_key(key, typing, ctrl, alt, tag)
   tag = tag or ""
-  -- Alt: yalnizca kayıtli Alt+<tus> kisayollari (Ctrl+N/W tarayiciya ayrilmis → Alt+N/W)
+  -- Alt: yalnizca kayıtli Alt+<tus> kisayollari (Ctrl+N/W tarayıcıya ayrilmis → Alt+N/W)
   if alt then
     local combo = "Alt+" .. (#key == 1 and key:upper() or key)
     for _, sc in ipairs(active_scopes()) do
@@ -251,7 +251,7 @@ function shortcuts.handle_key(key, typing, ctrl, alt, tag)
 
   -- Esc modal kapat degil, normal kisayollar icinde handle edilecek (modal yoksa nothing)
   if key == "Escape" then
-    -- registry'de Escape kaydi varsa calistir (or. detail kapat)
+    -- registry'de Escape kaydi varsa çalıştır (or. detail kapat)
     for _, sc in ipairs(active_scopes()) do
       local entry = registry[sc] and registry[sc][key]
       if entry then

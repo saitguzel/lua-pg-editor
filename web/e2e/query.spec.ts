@@ -28,7 +28,7 @@ test.describe("query", () => {
     // hata: invalid sql
     await type_sql(page, "SELECT * FROM yok_tablo_xyz");
     await page.getByRole("button", { name: /Çalıştır/ }).click();
-    await expect(page.locator("#toast-assertive")).toContainText(/Sorgu hatası|bulunamadi/i, { timeout: 15_000 });
+    await expect(page.locator("#toast-assertive")).toContainText(/Sorgu hatası|bulunamadı/i, { timeout: 15_000 });
 
     // CSV export (query): gerçek dosya iner
     await type_sql(page, "SELECT 1 AS a, NULL AS b");

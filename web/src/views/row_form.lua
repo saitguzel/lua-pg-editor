@@ -1,5 +1,5 @@
--- F19: Satir formlari (codd). 1) Ekle/Çoğalt: kolon basina Deger / NULL / Varsayilan secimi; identity ve
--- generated kolonlar atlanir. 2) Hucre editoru: bool/enum icin secim, diger tipler cok satirli metin;
+-- F19: Satır formlari (codd). 1) Ekle/Çoğalt: kolon basina Deger / NULL / Varsayilan secimi; identity ve
+-- generated kolonlar atlanir. 2) Hucre editoru: bool/enum icin secim, diger tipler cok satırli metin;
 -- Kaydet / NULL yap (yalniz nullable) / Iptal. Degerler metin gonderilir, Postgres kolon tipine cevirir.
 local dom = require("dom")
 local json = require("json")

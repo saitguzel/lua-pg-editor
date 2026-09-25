@@ -17,7 +17,7 @@ local function get_conn_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   return row
 end
@@ -39,6 +39,8 @@ end
 
 local acquire_target = pool_manager.acquire_for
 
+local READONLY_LEAD = { select = true, with = true, show = true, explain = true, values = true, table = true }
+
 function _M.execute(identity, input)
   -- 1. ownership
   local conn_row, err = get_conn_owned(identity, input.connection_id)
@@ -46,6 +48,28 @@ function _M.execute(identity, input)
   -- 2. rate limit
   local ok, rerr = check_rate_limit(identity, input.connection_id)
   if not ok then return nil, rerr end
+  -- 2b. rol bazli okuma kisiti (faz-32): editor yalnizca SELECT/WITH/SHOW/EXPLAIN/VALUES
+  if identity.role == "editor" then
+    local stmts = sql_parser.sql_statements(input.sql)
+    for _, st in ipairs(stmts) do
+      local kw = sql_parser.strip_leading_sql_comments(st):lower():match("^%s*(%a+)")
+      if kw and not READONLY_LEAD[kw] then
+        return nil, errors.new("FORBIDDEN", "Editor rolu yalnizca okuma sorgulari çalıştırabilir")
+      end
+    end
+  end
+  -- 2c. yikici sorgu onayi (faz-32): backend zorunlu confirm
+  do
+    local guard_ok, guard = pcall(require, "pg_shared.sql_guard")
+    if guard_ok and guard and guard.destructive_kind then
+      local hit = guard.destructive_kind(input.sql)
+      if hit and not input.confirm then
+        return nil, errors.new("DESTRUCTIVE_REQUIRES_CONFIRM",
+          "Yikici sorgu (" .. hit.kind .. "): " .. hit.statement .. " — confirm=true ile tekrar gonderin",
+          { kind = hit.kind, statement = hit.statement })
+      end
+    end
+  end
   -- 3. validations zaten handler'da, ama max_bytes kontrol
   local cfg = config.get()
   local max_bytes = cfg and cfg.query and cfg.query.max_bytes or 102400
@@ -72,7 +96,7 @@ function _M.execute(identity, input)
   local exec_res, qerr = target_query.execute(pg, input.sql, row_limit)
   local duration_ms = (ngx.now() - t0) * 1000
   if run_key and runs then runs:delete(run_key) end
-  -- kullanici BEGIN/COMMIT kullandiysa acik islem kalmis olabilir: baglanti havuza donmez
+  -- kullanıcı BEGIN/COMMIT kullandiysa acik islem kalmis olabilir: bağlantı havuza donmez
   pool_manager.release(conn_id, pg, exec_res == nil or sql_parser.contains_transaction_control(input.sql))
   if not exec_res then
     -- audit failure (history yazilmaz mi? doc: failure da history yazilir ama row_count nil; biz failure'da history yazmayalim ama audit yap)
@@ -82,7 +106,7 @@ function _M.execute(identity, input)
       new_value = { connection_id = input.connection_id, database = database },
       error_message = qerr and qerr.message or tostring(qerr),
     })
-    -- history insert failure durumunda da yapilir ama row_count nil
+    -- history insert failure durumunda da yapılir ama row_count nil
     if qerr and qerr.code == "QUERY_FAILED" or qerr.code == "OBJECT_NOT_FOUND" or qerr.code == "BAD_REQUEST" then
       -- history kaydet (opsiyonel, basarisiz da loglanir)
       pcall(function()

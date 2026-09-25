@@ -52,7 +52,7 @@ function _M.forgot_password()
     if serr and serr.code == "RATE_LIMITED" then return errors.respond(serr) end
     -- diger hatalar yine 202 (sızdırmaz)
   end
-  return { status = 202, json = { data = { message = "Eger bu e-posta kayitliysa sifirlama baglantisi gonderildi." } } }
+  return { status = 202, json = { data = { message = "Eger bu e-posta kayitliysa sıfırlama bağlantısi gonderildi." } } }
 end
 
 function _M.reset_password()
@@ -81,7 +81,7 @@ function _M.verify_reset_token()
   end
   -- token validasyonu: 64 hex
   local clean, v_err = validation.validate(validation.schemas.reset_password, { token = token, new_password = "Admin123!" })
-  -- sadece token'i kontrol et, new_password dummy gecerli olmali
+  -- sadece token'i kontrol et, new_password dummy geçerli olmali
   if not clean and v_err and v_err.token then
     return errors.respond(errors.validation({ token = v_err.token }))
   end

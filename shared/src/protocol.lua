@@ -37,6 +37,7 @@ _M.ERR = {
   AI_NOT_CONFIGURED = "AI_NOT_CONFIGURED",
   AI_PROVIDER_ERROR = "AI_PROVIDER_ERROR",
   AI_TIMEOUT = "AI_TIMEOUT",
+  DESTRUCTIVE_REQUIRES_CONFIRM = "DESTRUCTIVE_REQUIRES_CONFIRM",
 }
 
 _M.HTTP_STATUS = {
@@ -50,6 +51,7 @@ _M.HTTP_STATUS = {
   PASSWORD_REQUIRED = 428, SSH_HOST_KEY_UNKNOWN = 428,
   INTERNAL_ERROR = 500, MAIL_FAILED = 502, DB_UNAVAILABLE = 503,
   AI_DISABLED = 403, AI_NOT_CONFIGURED = 409, AI_PROVIDER_ERROR = 424, AI_TIMEOUT = 504,
+  DESTRUCTIVE_REQUIRES_CONFIRM = 409,
 }
 
 _M.CODE_LIST = {
@@ -62,9 +64,11 @@ _M.CODE_LIST = {
   "RESET_TOKEN_INVALID", "CONNECTION_FAILED", "PASSWORD_REQUIRED", "SSH_HOST_KEY_UNKNOWN", "RATE_LIMITED", "PAYLOAD_TOO_LARGE",
   "INTERNAL_ERROR", "MAIL_FAILED", "DB_UNAVAILABLE",
   "AI_DISABLED", "AI_NOT_CONFIGURED", "AI_PROVIDER_ERROR", "AI_TIMEOUT",
+  "DESTRUCTIVE_REQUIRES_CONFIRM",
 }
 
 _M.DEFAULT_MESSAGES = {
+  DESTRUCTIVE_REQUIRES_CONFIRM = "Yikici sorgu tespit edildi — onay gerekli",
   AI_DISABLED = "AI ile kod oluşturma kapalı",
   AI_NOT_CONFIGURED = "AI yapılandırılmamış (API anahtarı veya çalışan model yok)",
   AI_PROVIDER_ERROR = "AI sağlayıcısı hata döndürdü",
@@ -77,21 +81,21 @@ _M.DEFAULT_MESSAGES = {
   INVALID_CREDENTIALS = "E-posta veya parola hatali",
   ACCOUNT_DISABLED = "Hesabiniz pasif durumda",
   FORBIDDEN = "Bu islem icin yetkiniz yok",
-  NOT_FOUND = "Kaynak bulunamadi",
-  CONNECTION_NOT_FOUND = "Baglanti bulunamadi",
-  DATABASE_NOT_FOUND = "Veritabani bulunamadi",
-  OBJECT_NOT_FOUND = "Tablo veya view bulunamadi",
-  USER_NOT_FOUND = "Kullanici bulunamadi",
-  ROW_NOT_FOUND = "Satir bulunamadi",
-  QUERY_FAILED = "Sorgu calistirilamadi",
+  NOT_FOUND = "Kaynak bulunamadı",
+  CONNECTION_NOT_FOUND = "Bağlantı bulunamadı",
+  DATABASE_NOT_FOUND = "Veritabani bulunamadı",
+  OBJECT_NOT_FOUND = "Tablo veya view bulunamadı",
+  USER_NOT_FOUND = "Kullanıcı bulunamadı",
+  ROW_NOT_FOUND = "Satır bulunamadı",
+  QUERY_FAILED = "Sorgu çalıştırilamadi",
   READONLY_VIOLATION = "Yalnizca okuma islemine izin var",
   EMAIL_TAKEN = "Bu e-posta zaten kullaniliyor",
   CONFLICT = "Cakisma olustu",
   LAST_ADMIN = "Sistemdeki son aktif admin degistirilemez",
-  SELF_ACTION_FORBIDDEN = "Kendi hesabiniz uzerinde bu islem yapilamaz",
-  RESET_TOKEN_INVALID = "Gecersiz veya suresi dolmus sifirlama baglantisi",
-  CONNECTION_FAILED = "Baglanti kurulamadi",
-  PASSWORD_REQUIRED = "Bu baglanti icin parola gerekli",
+  SELF_ACTION_FORBIDDEN = "Kendi hesabiniz uzerinde bu islem yapılamaz",
+  RESET_TOKEN_INVALID = "Gecersiz veya suresi dolmus sıfırlama bağlantısi",
+  CONNECTION_FAILED = "Bağlantı kurulamadı",
+  PASSWORD_REQUIRED = "Bu bağlantı icin parola gerekli",
   SSH_HOST_KEY_UNKNOWN = "SSH sunucu anahtari henuz onaylanmadi",
   RATE_LIMITED = "Cok fazla deneme, lutfen bekleyin",
   PAYLOAD_TOO_LARGE = "Istek govdesi cok buyuk",

@@ -145,18 +145,15 @@ function _M.like_pattern(s)
   return "%" .. esc .. "%"
 end
 
--- Builder helper: parametreli WHERE/ORDER/LIMIT olusturmak icin
+-- Builder helper: parametreli WHERE/ORDER/LIMIT oluşturmak icin
 -- Kullanim: local b = query.builder(); b:where("user_id = $?", uid); local where, params = b:build_where()
+-- Tum SQL parametreli olmali; ham concat yasak (faz-31). where_raw kaldirildi.
 function _M.builder()
   local self = { clauses = {}, params = {} }
   function self:where(sql_fmt, value)
     if value == nil then return self end
     self.params[#self.params + 1] = value
     self.clauses[#self.clauses + 1] = sql_fmt:gsub("%$%?", "$" .. #self.params)
-    return self
-  end
-  function self:where_raw(sql_fmt)
-    self.clauses[#self.clauses + 1] = sql_fmt
     return self
   end
   function self:build_where()

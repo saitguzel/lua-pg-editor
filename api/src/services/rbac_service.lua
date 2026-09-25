@@ -168,10 +168,10 @@ end
 
 function _M.set_cell(identity, role, page_key, can_access)
   if not types.ROLE_SET[role] then
-    return nil, errors.new("NOT_FOUND", "Rol bulunamadi")
+    return nil, errors.new("NOT_FOUND", "Rol bulunamadı")
   end
   if not types.PAGE_SET[page_key] then
-    return nil, errors.new("NOT_FOUND", "Sayfa bulunamadi")
+    return nil, errors.new("NOT_FOUND", "Sayfa bulunamadı")
   end
   if type(can_access) ~= "boolean" then
     return nil, errors.new("VALIDATION_FAILED", "can_access boolean olmali", { can_access = { "boolean olmali" } })

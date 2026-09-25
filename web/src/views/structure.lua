@@ -1,4 +1,4 @@
--- F19: Yapi inceleme ve duzenleme (codd Structure) — kolonlar, indexler, constraint'ler, FK'ler, trigger'lar,
+-- F19: Yapı inceleme ve düzenleme (codd Structure) — kolonlar, indexler, constraint'ler, FK'ler, trigger'lar,
 -- istatistik. Her oge icin sag tik: adi kopyala / yeniden adlandir / sil (bagimlilik hatasinda CASCADE onerisi).
 -- Constraint'e bagli index'ler constraint üzerinden yonetilir (salt okunur).
 local dom = require("dom")
@@ -118,7 +118,7 @@ local function badge(text, cls)
   return dom.span({ class = "inline-flex px-1.5 py-0.5 mr-1 text-[10px] rounded " .. (cls or "border border-[var(--border)]") }, text)
 end
 
--- satirlar: rows = { { name, cells = {...}, read_only } }; sag tik ve "⋯" menusu satir basina
+-- satırlar: rows = { { name, cells = {...}, read_only } }; sag tik ve "⋯" menusu satır basina
 local function section(c, tab, headers, rows)
   if #rows == 0 then
     return dom.p({ class = "p-6 text-center text-sm text-[var(--fg-muted)] border border-dashed border-[var(--border)] rounded" },

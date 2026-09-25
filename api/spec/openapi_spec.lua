@@ -1,4 +1,4 @@
--- OpenAPI spec yapi ve kapsama testleri (pg-editor F13)
+-- OpenAPI spec yapı ve kapsama testleri (pg-editor F13)
 local cjson = require("cjson.safe")
 
 describe("openapi spec", function()

@@ -79,9 +79,9 @@ function _M.render(state, dispatch)
               app.toast("success", "Varsayilan sayfa boyutu " .. v .. " olarak kaydedildi")
             end,
           }, dom.list(per_page_opts)),
-          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" }, "Tablo tarayici icin varsayilan satir sayisi (50/100/250/500)")),
+          dom.p({ class = "text-xs text-[var(--fg-muted)] mt-1" }, "Tablo tarayıcı icin varsayilan satır sayisi (50/100/250/500)")),
         dom.div({},
-          dom.label({ ["for"] = "settings-row-limit", class = "block text-sm font-medium mb-1" }, "Sorgu satir limiti (row_limit)"),
+          dom.label({ ["for"] = "settings-row-limit", class = "block text-sm font-medium mb-1" }, "Sorgu satır limiti (row_limit)"),
           dom.select({
             id = "settings-row-limit",
             class = "w-full px-3 py-2 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg)]",
@@ -128,10 +128,10 @@ function _M.render(state, dispatch)
         dom.dd({ class = "font-mono" }, version),
         dom.dt({ class = "text-[var(--fg-muted)]" }, "Tema"),
         dom.dd({}, theme),
-        dom.dt({ class = "text-[var(--fg-muted)]" }, "Yapim"),
+        dom.dt({ class = "text-[var(--fg-muted)]" }, "Yapım"),
         dom.dd({ class = "font-mono text-xs" }, tostring(storage.get_raw and storage.get_raw("build_mode") or "development")))),
     dom.footer({ class = "text-xs text-[var(--fg-muted)] text-center pt-4 border-t border-[var(--border)]" },
-      "© 2026 pgLua · Versiyon " .. version .. " · Ayarlar tarayicida saklanir (localStorage)"))
+      "© 2026 pgLua · Versiyon " .. version .. " · Ayarlar tarayıcıda saklanir (localStorage)"))
 end
 
 return _M

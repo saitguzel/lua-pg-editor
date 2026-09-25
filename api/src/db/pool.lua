@@ -132,7 +132,7 @@ function _M.warm(n)
     end
   end)
   if not ok then
-    ngx.log(ngx.WARN, "warm timer kurulamadi: ", err)
+    ngx.log(ngx.WARN, "warm timer kurulamadı: ", err)
   end
 end
 

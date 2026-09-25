@@ -72,11 +72,11 @@ end
 function _M.get(self)
   local id = self.params and self.params.id
   if not id or not id:match("^%d+$") then
-    return errors.respond(errors.new("NOT_FOUND", "Kayit bulunamadi"))
+    return errors.respond(errors.new("NOT_FOUND", "Kayit bulunamadı"))
   end
   local row, ferr = audit_repo.find(tonumber(id))
   if ferr then return errors.respond(ferr) end
-  if not row then return errors.respond(errors.new("NOT_FOUND", "Kayit bulunamadi")) end
+  if not row then return errors.respond(errors.new("NOT_FOUND", "Kayit bulunamadı")) end
   return { status = 200, json = { data = audit_model.serialize(row) } }
 end
 

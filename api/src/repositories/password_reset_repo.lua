@@ -1,4 +1,4 @@
--- Parola sifirlama token repository (password_reset_tokens)
+-- Parola sıfırlama token repository (password_reset_tokens)
 local query = require("db.query")
 
 local _M = {}

@@ -424,8 +424,8 @@ function _M.sql_identifier()
   }
 end
 
--- PostgreSQL nesne/DB/kullanici adi: 1-63 bayt, NUL yok. Adlar SQL'e her zaman quote_ident ile girer,
--- bu yuzden tire, nokta, bosluk, Unicode ve rezerve kelimeler gecerlidir (codd ile ayni).
+-- PostgreSQL nesne/DB/kullanıcı adi: 1-63 bayt, NUL yok. Adlar SQL'e her zaman quote_ident ile girer,
+-- bu yuzden tire, nokta, bosluk, Unicode ve rezerve kelimeler geçerlidir (codd ile ayni).
 function _M.pg_name()
   return {
     kind = "pg_name",
@@ -440,6 +440,44 @@ function _M.pg_name()
   }
 end
 
+-- safe_sql: custom_where benzeri ifade icin - noktali virgul/yorum/parametre/transaction
+-- ve yasak kelimeler reddedilir; kolon allow-list backend'de validate_expression ile eklenir
+local SAFE_FORBIDDEN = {
+  "select", "insert", "update", "delete", "drop", "truncate", "create", "alter",
+  "grant", "revoke", "comment", "reindex", "vacuum", "cluster", "copy", "union",
+  "into", "exec", "execute", "declare", "fetch", "with", "having", "window",
+}
+local function _safe_stripped(s)
+  -- tek tirnak, cift tirnak ve dolar quoting icini bosluga cevir (basit, shared pure)
+  local out, n, i, mode, tag = {}, #s, 1, nil, nil
+  local function dollar_tag(str, pos)
+    local t = str:match("^%$[%a_][%w_]*%$", pos) or str:match("^%$%$", pos)
+    return t
+  end
+  while i <= n do
+    local c = s:sub(i, i)
+    if mode == "single" then
+      if c == "'" and s:sub(i + 1, i + 1) == "'" then out[#out + 1] = "  "; i = i + 2
+      elseif c == "'" then out[#out + 1] = " "; i = i + 1; mode = nil
+      else out[#out + 1] = " "; i = i + 1 end
+    elseif mode == "double" then
+      if c == '"' and s:sub(i + 1, i + 1) == '"' then out[#out + 1] = "  "; i = i + 2
+      elseif c == '"' then out[#out + 1] = " "; i = i + 1; mode = nil
+      else out[#out + 1] = " "; i = i + 1 end
+    elseif mode == "dollar" then
+      if s:sub(i, i + #tag - 1) == tag then out[#out + 1] = string.rep(" ", #tag); i = i + #tag; mode = nil
+      else out[#out + 1] = " "; i = i + 1 end
+    else
+      local t = c == "$" and dollar_tag(s, i) or nil
+      if c == "'" then mode = "single"; out[#out + 1] = " "; i = i + 1
+      elseif c == '"' then mode = "double"; out[#out + 1] = " "; i = i + 1
+      elseif t then mode = "dollar"; tag = t; out[#out + 1] = string.rep(" ", #t); i = i + #t
+      else out[#out + 1] = c; i = i + 1 end
+    end
+  end
+  return table.concat(out):lower()
+end
+
 function _M.safe_sql()
   return {
     kind = "safe_sql",
@@ -447,9 +485,19 @@ function _M.safe_sql()
     nullable = false,
     check = function(val)
       if type(val) ~= "string" then return false, { "metin olmali" } end
-      if val:find(";") then return false, { "noktali virgul iceremez" } end
-      if val:lower():find("drop%s+table") then return false, { "DROP iceremez" } end
       if #val > 5000 then return false, { "en fazla 5000 karakter" } end
+      if val:find(";") then return false, { "noktali virgul iceremez" } end
+      if val:find("--", 1, true) or val:find("/*", 1, true) then return false, { "yorum iceremez" } end
+      if val:find("%$%d") then return false, { "parametre ($n) iceremez" } end
+      local low = _safe_stripped(val)
+      -- transaction
+      for _, kw in ipairs({ "begin", "commit", "rollback", "start" }) do
+        if low:find("%f[%w_]" .. kw .. "%f[^%w_]") then return false, { "transaction deyimi iceremez" } end
+      end
+      for _, kw in ipairs(SAFE_FORBIDDEN) do
+        if low:find("%f[%w_]" .. kw .. "%f[^%w_]") then return false, { kw .. " iceremez" } end
+      end
+      if low:find("pg_%w+") then return false, { "pg_ iceremez" } end
       return true, val
     end
   }
@@ -545,7 +593,7 @@ local function init_schemas()
     per_page = _M.optional(_M.query_int({ min = 1, max = 100, default = 20 })),
   })
 
-  -- PG-editor connection semasi
+  -- PG-editor connection şemasi
   _M.schemas.connection_create = _M.schema({
     name = _M.string({ min = 1, max = 100, trim = true }),
     host = _M.host(),
@@ -591,7 +639,7 @@ local function init_schemas()
     new_name = _M.pg_name(),
   })
 
-  -- F25: sema referansi ve kategori bazli nesne listesi (?category=&q=&limit=&offset=)
+  -- F25: şema referansi ve kategori bazli nesne listesi (?category=&q=&limit=&offset=)
   _M.schemas.schema_ref = _M.schema({
     schema = _M.pg_name(),
     database = _M.optional(_M.pg_name()),
@@ -611,6 +659,7 @@ local function init_schemas()
     sql = _M.string({ min = 1, max = 102400 }),
     row_limit = _M.optional(_M.integer({ min = 1, max = 50000 })),
     run_id = _M.optional(_M.string({ min = 1, max = 64 })),
+    confirm = _M.optional(_M.boolean()),
   })
 
   _M.schemas.query_cancel = _M.schema({

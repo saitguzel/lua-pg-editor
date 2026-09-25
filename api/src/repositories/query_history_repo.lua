@@ -1,4 +1,4 @@
--- Query history repository: meta DB uzerinde gecmis kayitlari
+-- Query history repository: meta DB uzerinde gecmis kayıtları
 local query = require("db.query")
 local cjson = require("cjson.safe")
 
@@ -35,7 +35,7 @@ function _M.find_by_connection_db(user_id, connection_id, database, limit, offse
   if limit > 100 then limit = 100 end
   offset = tonumber(offset) or 0
   if offset < 0 then offset = 0 end
-  -- connection_id nil → kullanicinin tum gecmisi
+  -- connection_id nil → kullanıcınin tum geçmişi
   local where = "WHERE user_id=$1"
   local params = { user_id }
   local idx = 1

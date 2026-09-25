@@ -31,8 +31,8 @@ function keyboard.setup(app)
     local st = app.get_state()
     if st.route.name == "query" then
       -- query_editor icinde run_query'yi tetikle: view'e event gondermek yerine dogrudan dispatch
-      -- view zaten editor onRun ve buton ile calistiriyor; burada toast ile bilgi ver
-      -- En basit: query sayfasindaki aktif sekmeyi calistir icin custom event
+      -- view zaten editor onRun ve buton ile çalıştıriyor; burada toast ile bilgi ver
+      -- En basit: query sayfasindaki aktif sekmeyi çalıştır icin custom event
       local ok2, qview = pcall(require, "views.query_editor")
       if ok2 and qview.trigger_run then pcall(qview.trigger_run) end
     end
@@ -63,7 +63,7 @@ function keyboard.setup(app)
     return ok2 and qview.cancel_run() or false
   end, "Çalışan sorguyu iptal et (Esc)")
 
-  -- sorgu sekmeleri (codd Ctrl+N/W; tarayici bu tuslari sayfaya birakmadigi icin Alt ile)
+  -- sorgu sekmeleri (codd Ctrl+N/W; tarayıcı bu tuslari sayfaya birakmadigi icin Alt ile)
   local function qe() return require("views.query_editor") end
   shortcuts.register("query", "Alt+N", function() qe().new_tab(); return true end, "Yeni sorgu sekmesi (Alt+N)")
   shortcuts.register("query", "Alt+W", function() qe().close_active_tab(); return true end, "Sekmeyi kapat (Alt+W)")
@@ -79,7 +79,7 @@ function keyboard.setup(app)
   shortcuts.register("query", "Ctrl+Shift+F", function() return qe().format_sql() end,
     "SQL'i biçimle (Ctrl+Shift+F)")
 
-  -- tablo tarayici (codd): Delete odakli satiri siler, Ctrl+R yeniler
+  -- tablo tarayıcı (codd): Delete odakli satıri siler, Ctrl+R yeniler
   shortcuts.register("browse", "Delete", function()
     return require("views.table_browser").delete_focused()
   end, "Seçili satırı sil (Delete)")

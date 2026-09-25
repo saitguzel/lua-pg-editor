@@ -59,7 +59,7 @@ local function set_open(conn, key, open)
 end
 local function quick_filter() return storage.get("sidebar.filter") or "all" end
 
--- aktif bağlantı/DB: sorgu sekmesi ya da tarayici/yapi sayfasinin URL'i
+-- aktif bağlantı/DB: sorgu sekmesi ya da tarayıcı/yapı sayfasinin URL'i
 local function context(state)
   local r = state.route
   if r.name == "browse" or r.name == "structure" then

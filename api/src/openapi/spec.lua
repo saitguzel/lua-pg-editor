@@ -215,6 +215,7 @@ local function components()
         sql = { type = "string", minLength = 1, maxLength = 102400 },
         row_limit = { type = "integer", minimum = 1, maximum = 50000 },
         run_id = { type = "string", maxLength = 64, description = "POST /query/cancel icin istemci kimligi" },
+        confirm = { type = "boolean", description = "Yikici sorgu onayi (DROP/TRUNCATE/DELETE WHERE'siz)" },
       },
     },
     QueryResult = {
@@ -346,11 +347,11 @@ local function components()
   }
   local parameters = {
     IdPath = { name = "id", ["in"] = "path", required = true, schema = ref("Uuid") },
-    ConnectionIdPath = { name = "id", ["in"] = "path", required = true, schema = ref("Uuid"), description = "Baglanti ID" },
-    SchemaPath = { name = "schema", ["in"] = "path", required = true, schema = { type = "string" }, description = "Sema adi" },
+    ConnectionIdPath = { name = "id", ["in"] = "path", required = true, schema = ref("Uuid"), description = "Bağlantı ID" },
+    SchemaPath = { name = "schema", ["in"] = "path", required = true, schema = { type = "string" }, description = "Şema adi" },
     NamePath = { name = "name", ["in"] = "path", required = true, schema = { type = "string" }, description = "Tablo/view adi" },
     TablePath = { name = "table", ["in"] = "path", required = true, schema = { type = "string" }, description = "Tablo adi" },
-    RidPath = { name = "rid", ["in"] = "path", required = true, schema = { type = "string" }, description = "Satir kimligi (PK degerleri)" },
+    RidPath = { name = "rid", ["in"] = "path", required = true, schema = { type = "string" }, description = "Satır kimligi (PK degerleri)" },
     AuditIdPath = { name = "id", ["in"] = "path", required = true, schema = { type = "integer", minimum = 1 } },
     Page = { name = "page", ["in"] = "query", schema = { type = "integer", minimum = 1, default = 1 } },
     PerPage = { name = "per_page", ["in"] = "query", schema = { type = "integer", minimum = 1, maximum = 100, default = 20 } },
@@ -405,7 +406,7 @@ local function paths()
       tags = { "auth" }, operationId = "logout", summary = "Cikis yap",
       description = "Govde opsiyonel; refresh_token verilirse o da iptal edilir.",
       requestBody = { required = false, content = { ["application/json"] = { schema = ref("LogoutRequest"), example = { refresh_token = "eyJ..." } } } },
-      responses = { ["204"] = { description = "Cikis yapildi" } },
+      responses = { ["204"] = { description = "Cikis yapıldi" } },
       errors = { "BAD_REQUEST", "VALIDATION_FAILED", "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REVOKED" },
     }),
   }
@@ -420,7 +421,7 @@ local function paths()
   }
   p["/auth/forgot-password"] = {
     post = op({
-      tags = { "auth" }, operationId = "forgotPassword", summary = "Parola sifirlama istegi",
+      tags = { "auth" }, operationId = "forgotPassword", summary = "Parola sıfırlama istegi",
       security = EMPTY,
       requestBody = json_body("ForgotPasswordRequest", { email = "user@pgeditor.local" }),
       responses = { ["202"] = resp("Istek alindi", ref("MessageResponse")) },
@@ -438,54 +439,54 @@ local function paths()
   }
   p["/auth/verify-reset-token"] = {
     get = op({
-      tags = { "auth" }, operationId = "verifyResetToken", summary = "Sifirlama token dogrula",
+      tags = { "auth" }, operationId = "verifyResetToken", summary = "Sıfırlama token dogrula",
       security = EMPTY,
       parameters = { { name = "token", ["in"] = "query", required = true, schema = { type = "string" } } },
-      responses = { ["200"] = resp("Gecerli", data_of({ type = "object", properties = { valid = { type = "boolean" } } })) },
+      responses = { ["200"] = resp("Geçerli", data_of({ type = "object", properties = { valid = { type = "boolean" } } })) },
       errors = { "VALIDATION_FAILED", "RESET_TOKEN_INVALID" },
     }),
   }
   p["/auth/me"] = {
     get = op({
-      tags = { "auth" }, operationId = "getMe", summary = "Mevcut kullanici",
-      responses = { ["200"] = resp("Kullanici", data_of(ref("Me"))) },
+      tags = { "auth" }, operationId = "getMe", summary = "Mevcut kullanıcı",
+      responses = { ["200"] = resp("Kullanıcı", data_of(ref("Me"))) },
       errors = { "UNAUTHORIZED", "USER_NOT_FOUND" },
     }),
   }
   -- connections
   p["/connections"] = {
     get = op({
-      tags = { "connections" }, operationId = "listConnections", summary = "Baglantilari listele",
+      tags = { "connections" }, operationId = "listConnections", summary = "Bağlantılari listele",
       ["x-page-key"] = "connections.list",
       parameters = { qp("Page"), qp("PerPage"), qp("Search"), qp("Q") },
       responses = { ["200"] = resp("Liste", page_of("Connection")) },
       errors = { "UNAUTHORIZED", "FORBIDDEN" },
     }),
     post = op({
-      tags = { "connections" }, operationId = "createConnection", summary = "Baglanti olustur",
+      tags = { "connections" }, operationId = "createConnection", summary = "Bağlantı oluştur",
       ["x-page-key"] = "connections.create",
       requestBody = json_body("ConnectionCreate", { name = "local", host = "postgres", port = 5432, database = "pgeditor", username = "pgeditor" }),
-      responses = { ["201"] = resp("Olusturuldu", data_of(ref("Connection"))) },
+      responses = { ["201"] = resp("Oluşturuldu", data_of(ref("Connection"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONFLICT" },
     }),
   }
   p["/connections/{id}"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
     get = op({
-      tags = { "connections" }, operationId = "getConnection", summary = "Baglanti getir",
+      tags = { "connections" }, operationId = "getConnection", summary = "Bağlantı getir",
       ["x-page-key"] = "connections.list",
-      responses = { ["200"] = resp("Baglanti", data_of(ref("Connection"))) },
+      responses = { ["200"] = resp("Bağlantı", data_of(ref("Connection"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND" },
     }),
     put = op({
-      tags = { "connections" }, operationId = "updateConnection", summary = "Baglanti guncelle",
+      tags = { "connections" }, operationId = "updateConnection", summary = "Bağlantı güncelle",
       ["x-page-key"] = "connections.create",
       requestBody = json_body("ConnectionCreate", { name = "local2", host = "postgres", port = 5432, database = "pgeditor", username = "pgeditor" }),
-      responses = { ["200"] = resp("Guncellendi", data_of(ref("Connection"))) },
+      responses = { ["200"] = resp("Güncellendi", data_of(ref("Connection"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "VALIDATION_FAILED", "CONFLICT" },
     }),
     delete = op({
-      tags = { "connections" }, operationId = "deleteConnection", summary = "Baglanti sil",
+      tags = { "connections" }, operationId = "deleteConnection", summary = "Bağlantı sil",
       ["x-page-key"] = "connections.create",
       responses = { ["204"] = { description = "Silindi" } },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND" },
@@ -494,7 +495,7 @@ local function paths()
   p["/connections/{id}/test"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
     post = op({
-      tags = { "connections" }, operationId = "testConnection", summary = "Baglanti test et",
+      tags = { "connections" }, operationId = "testConnection", summary = "Bağlantı test et",
       ["x-page-key"] = "connections.create",
       responses = { ["200"] = resp("Test sonucu", data_of(ref("ConnectionTestResult"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED" },
@@ -537,14 +538,24 @@ local function paths()
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED" },
     }),
   }
+  p["/connections/{id}/stats"] = {
+    parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
+    get = op({
+      tags = { "connections" }, operationId = "getConnectionStats", summary = "Bağlantı istatistikleri",
+      ["x-page-key"] = "dashboard",
+      parameters = { qp("DatabaseQuery") },
+      responses = { ["200"] = resp("Istatistikler", data_of({ type = "object" })) },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED" },
+    }),
+  }
   -- schema & structure
   p["/connections/{id}/schemas"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
     get = op({
-      tags = { "schema" }, operationId = "listSchemas", summary = "Semalari listele",
+      tags = { "schema" }, operationId = "listSchemas", summary = "Şemalari listele",
       ["x-page-key"] = "schema.browser",
       parameters = { qp("DatabaseQuery") },
-      responses = { ["200"] = resp("Sema listesi", data_of({ type = "array", items = { type = "string" } })) },
+      responses = { ["200"] = resp("Şema listesi", data_of({ type = "array", items = { type = "string" } })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "CONNECTION_FAILED" },
     }),
   }
@@ -578,12 +589,12 @@ local function paths()
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/NamePath" } },
     get = op({
       tags = { "schema" }, operationId = "getStructure",
-      summary = "Yapi incele (kolon, index, FK, trigger, rule, policy; iliski disi nesnede detail)",
+      summary = "Yapı incele (kolon, index, FK, trigger, rule, policy; iliski disi nesnede detail)",
       ["x-page-key"] = "structure.view",
       parameters = { qp("DatabaseQuery"),
         { name = "kind", ["in"] = "query", schema = { type = "string", enum = types.OBJECT_KINDS },
           description = "Ipucu; tur sunucuda tespit edilir" } },
-      responses = { ["200"] = resp("Yapi", data_of(ref("TableStructure"))) },
+      responses = { ["200"] = resp("Yapı", data_of(ref("TableStructure"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "CONNECTION_FAILED" },
     }),
   }
@@ -600,11 +611,11 @@ local function paths()
   -- query
   p["/query/execute"] = {
     post = op({
-      tags = { "query" }, operationId = "executeQuery", summary = "SQL calistir",
+      tags = { "query" }, operationId = "executeQuery", summary = "SQL çalıştır",
       ["x-page-key"] = "query.execute",
       requestBody = json_body("QueryRequest", { connection_id = "00000000-0000-0000-0000-000000000000", sql = "SELECT 1" }),
       responses = { ["200"] = resp("Sonuc", data_of(ref("QueryResult"))) },
-      errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONNECTION_NOT_FOUND", "QUERY_FAILED", "PAYLOAD_TOO_LARGE" },
+      errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONNECTION_NOT_FOUND", "QUERY_FAILED", "PAYLOAD_TOO_LARGE", "RATE_LIMITED", "DESTRUCTIVE_REQUIRES_CONFIRM" },
     }),
   }
   p["/query/cancel"] = {
@@ -619,10 +630,10 @@ local function paths()
   }
   p["/query/history"] = {
     get = op({
-      tags = { "query" }, operationId = "listQueryHistory", summary = "Sorgu gecmisi",
+      tags = { "query" }, operationId = "listQueryHistory", summary = "Sorgu geçmişi",
       ["x-page-key"] = "query.history",
       parameters = {
-        { name = "connection_id", ["in"] = "query", required = false, description = "Yoksa tum baglantilarin gecmisi", schema = ref("Uuid") },
+        { name = "connection_id", ["in"] = "query", required = false, description = "Yoksa tum bağlantılarin geçmişi", schema = ref("Uuid") },
         qp("DatabaseQuery"), qp("Page"), qp("PerPage"),
         { name = "q", ["in"] = "query", required = false, description = "SQL metninde arama (buyuk/kucuk harf duyarsiz)", schema = { type = "string", maxLength = 200 } },
       },
@@ -630,7 +641,7 @@ local function paths()
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED" },
     }),
     delete = op({
-      tags = { "query" }, operationId = "deleteQueryHistory", summary = "Sorgu gecmisi sil",
+      tags = { "query" }, operationId = "deleteQueryHistory", summary = "Sorgu geçmişi sil",
       ["x-page-key"] = "query.history",
       parameters = {
         { name = "connection_id", ["in"] = "query", required = true, schema = ref("Uuid") },
@@ -644,21 +655,21 @@ local function paths()
   p["/connections/{id}/objects/{schema}/{table}/rows"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/TablePath" } },
     get = op({
-      tags = { "table" }, operationId = "listRows", summary = "Satirlari listele (sayfala, filtre, siralama)",
+      tags = { "table" }, operationId = "listRows", summary = "Satırlari listele (sayfala, filtre, siralama)",
       ["x-page-key"] = "table.browser",
       parameters = { qp("Page"), qp("PerPage100"), qp("Sort"), qp("FiltersQuery"), qp("CustomWhereQuery"), qp("DatabaseQuery") },
-      responses = { ["200"] = resp("Satirlar", data_of(ref("TablePage"))) },
+      responses = { ["200"] = resp("Satırlar", data_of(ref("TablePage"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED" },
     }),
     post = op({
-      tags = { "table" }, operationId = "createRow", summary = "Satir ekle",
+      tags = { "table" }, operationId = "createRow", summary = "Satır ekle",
       ["x-page-key"] = "table.edit",
       requestBody = json_body("RowCreate", { values = { name = "ornek" } }),
       responses = { ["201"] = resp("Eklendi", data_of({ type = "object" })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "VALIDATION_FAILED", "QUERY_FAILED" },
     }),
     delete = op({
-      tags = { "table" }, operationId = "deleteRows", summary = "Satirlari sil (toplu)",
+      tags = { "table" }, operationId = "deleteRows", summary = "Satırlari sil (toplu)",
       ["x-page-key"] = "table.edit",
       requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", properties = { ids = { type = "array", items = { type = "string" } } } } } } },
       responses = { ["200"] = resp("Silindi", data_of({ type = "object", properties = { deleted = { type = "integer" } } })) },
@@ -668,17 +679,17 @@ local function paths()
   p["/connections/{id}/objects/{schema}/{table}/rows/{rid}"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/TablePath" }, { ["$ref"] = "#/components/parameters/RidPath" } },
     patch = op({
-      tags = { "table" }, operationId = "updateRow", summary = "Satir guncelle",
+      tags = { "table" }, operationId = "updateRow", summary = "Satır güncelle",
       ["x-page-key"] = "table.edit",
       requestBody = json_body("RowUpdate", { values = { name = "yeni" } }),
-      responses = { ["200"] = resp("Guncellendi", data_of({ type = "object" })) },
+      responses = { ["200"] = resp("Güncellendi", data_of({ type = "object" })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "ROW_NOT_FOUND", "VALIDATION_FAILED" },
     }),
   }
   p["/connections/{id}/objects/{schema}/{table}/rows/{rid}/duplicate"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" }, { ["$ref"] = "#/components/parameters/SchemaPath" }, { ["$ref"] = "#/components/parameters/TablePath" }, { ["$ref"] = "#/components/parameters/RidPath" } },
     post = op({
-      tags = { "table" }, operationId = "duplicateRow", summary = "Satiri cogalt",
+      tags = { "table" }, operationId = "duplicateRow", summary = "Satıri cogalt",
       ["x-page-key"] = "table.edit",
       responses = { ["201"] = resp("Cogaltildi", data_of({ type = "object" })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONNECTION_NOT_FOUND", "OBJECT_NOT_FOUND", "ROW_NOT_FOUND" },
@@ -706,7 +717,7 @@ local function paths()
   p["/admin/ai/settings"] = {
     get = ai_op({ operationId = "getAiSettings", summary = "AI ayarlari (anahtar yalnizca son 4 karakter)", ["x-page-key"] = "settings",
       errors = { "UNAUTHORIZED", "FORBIDDEN" } }),
-    put = ai_op({ operationId = "updateAiSettings", summary = "AI ayarlarini guncelle", ["x-page-key"] = "settings",
+    put = ai_op({ operationId = "updateAiSettings", summary = "AI ayarlarini güncelle", ["x-page-key"] = "settings",
       requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", properties = {
         enabled = { type = "boolean" }, base_url = { type = "string", format = "uri" }, api_key = { type = "string", writeOnly = true },
         clear_api_key = { type = "boolean" }, default_model = { type = "string" },
@@ -727,7 +738,7 @@ local function paths()
     errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONFLICT", "AI_NOT_CONFIGURED" } }) }
   p["/ai/status"] = { get = ai_op({ operationId = "aiStatus", summary = "Sorgu ekrani icin AI durumu ve gorunur modeller",
     ["x-page-key"] = "query.ai", errors = { "UNAUTHORIZED", "FORBIDDEN" } }) }
-  p["/ai/generate"] = { post = ai_op({ operationId = "aiGenerate", summary = "Dogal dilden SQL uret / secili SQL'i guncelle (calistirmaz)",
+  p["/ai/generate"] = { post = ai_op({ operationId = "aiGenerate", summary = "Dogal dilden SQL uret / secili SQL'i güncelle (çalıştırmaz)",
     ["x-page-key"] = "query.ai",
     requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "connection_id", "prompt" },
       properties = { connection_id = ref("Uuid"), database = { type = "string" }, prompt = { type = "string", maxLength = 4000 },
@@ -741,23 +752,23 @@ local function paths()
   local snippet_body = { required = true, content = { ["application/json"] = { schema = snippet_schema } } }
   p["/snippets"] = {
     get = op({
-      tags = { "snippets" }, operationId = "listSnippets", summary = "Kullanicinin taslaklari", ["x-page-key"] = "query.execute",
+      tags = { "snippets" }, operationId = "listSnippets", summary = "Kullanıcınin taslakları", ["x-page-key"] = "query.execute",
       responses = { ["200"] = resp("Taslaklar", data_of({ type = "array", items = { type = "object" } })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN" },
     }),
     post = op({
-      tags = { "snippets" }, operationId = "createSnippet", summary = "Taslak olustur", ["x-page-key"] = "query.execute",
+      tags = { "snippets" }, operationId = "createSnippet", summary = "Taslak oluştur", ["x-page-key"] = "query.execute",
       requestBody = snippet_body,
-      responses = { ["201"] = resp("Olusturuldu", data_of({ type = "object" })) },
+      responses = { ["201"] = resp("Oluşturuldu", data_of({ type = "object" })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "CONFLICT" },
     }),
   }
   p["/snippets/{id}"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
     put = op({
-      tags = { "snippets" }, operationId = "updateSnippet", summary = "Taslak guncelle", ["x-page-key"] = "query.execute",
+      tags = { "snippets" }, operationId = "updateSnippet", summary = "Taslak güncelle", ["x-page-key"] = "query.execute",
       requestBody = snippet_body,
-      responses = { ["200"] = resp("Guncellendi", data_of({ type = "object" })) },
+      responses = { ["200"] = resp("Güncellendi", data_of({ type = "object" })) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED", "NOT_FOUND", "CONFLICT" },
     }),
     delete = op({
@@ -807,7 +818,7 @@ local function paths()
       tags = { "objects" }, operationId = "toggleTrigger", summary = "Trigger etkinlestir/devre disi birak (yalnizca kind=trigger)",
       ["x-page-key"] = "object.actions",
       requestBody = { required = true, content = { ["application/json"] = { schema = { type = "object", required = { "enabled" }, properties = { enabled = { type = "boolean" } } } } } },
-      responses = { ["200"] = resp("Guncellendi", data_of({ type = "object" })) },
+      responses = { ["200"] = resp("Güncellendi", data_of({ type = "object" })) },
       errors = routine_errors,
     }),
   }
@@ -885,44 +896,44 @@ local function paths()
   -- users & rbac
   p["/users"] = {
     get = op({
-      tags = { "users" }, operationId = "listUsers", summary = "Kullanici listele",
+      tags = { "users" }, operationId = "listUsers", summary = "Kullanıcı listele",
       ["x-page-key"] = "users.list",
       parameters = { qp("Q"), qp("RoleQuery"), qp("IsActiveQuery"), qp("Page"), qp("PerPage"), qp("Sort") },
       responses = { ["200"] = resp("Liste", page_of("User")) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_FAILED" },
     }),
     post = op({
-      tags = { "users" }, operationId = "createUser", summary = "Kullanici olustur",
+      tags = { "users" }, operationId = "createUser", summary = "Kullanıcı oluştur",
       ["x-page-key"] = "users.create",
       requestBody = json_body("UserCreate", { email = "yeni@pgeditor.local", password = "Ornek123!", role = "editor" }),
-      responses = { ["201"] = resp("Olusturuldu", data_of(ref("User"))) },
+      responses = { ["201"] = resp("Oluşturuldu", data_of(ref("User"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "EMAIL_TAKEN", "VALIDATION_FAILED" },
     }),
   }
   p["/users/{id}"] = {
     parameters = { { ["$ref"] = "#/components/parameters/IdPath" } },
     get = op({
-      tags = { "users" }, operationId = "getUser", summary = "Kullanici getir",
+      tags = { "users" }, operationId = "getUser", summary = "Kullanıcı getir",
       ["x-page-key"] = "users.list",
-      responses = { ["200"] = resp("Kullanici", data_of(ref("User"))) },
+      responses = { ["200"] = resp("Kullanıcı", data_of(ref("User"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "USER_NOT_FOUND" },
     }),
     put = op({
-      tags = { "users" }, operationId = "updateUser", summary = "Kullanici guncelle",
+      tags = { "users" }, operationId = "updateUser", summary = "Kullanıcı güncelle",
       ["x-page-key"] = "users.create",
       requestBody = json_body("UserUpdate", { full_name = "Yeni Ad", is_active = true }),
-      responses = { ["200"] = resp("Guncellendi", data_of(ref("User"))) },
+      responses = { ["200"] = resp("Güncellendi", data_of(ref("User"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "USER_NOT_FOUND", "EMAIL_TAKEN", "LAST_ADMIN", "SELF_ACTION_FORBIDDEN", "VALIDATION_FAILED" },
     }),
     patch = op({
-      tags = { "users" }, operationId = "patchUser", summary = "Kullanici kismi guncelle",
+      tags = { "users" }, operationId = "patchUser", summary = "Kullanıcı kismi güncelle",
       ["x-page-key"] = "users.create",
       requestBody = json_body("UserUpdate", { is_active = false }),
-      responses = { ["200"] = resp("Guncellendi", data_of(ref("User"))) },
+      responses = { ["200"] = resp("Güncellendi", data_of(ref("User"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "USER_NOT_FOUND", "EMAIL_TAKEN", "LAST_ADMIN", "SELF_ACTION_FORBIDDEN", "VALIDATION_FAILED" },
     }),
     delete = op({
-      tags = { "users" }, operationId = "deleteUser", summary = "Kullanici sil",
+      tags = { "users" }, operationId = "deleteUser", summary = "Kullanıcı sil",
       ["x-page-key"] = "users.create",
       responses = { ["204"] = { description = "Silindi" } },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "USER_NOT_FOUND", "LAST_ADMIN", "SELF_ACTION_FORBIDDEN" },
@@ -944,10 +955,10 @@ local function paths()
       errors = { "UNAUTHORIZED", "FORBIDDEN" },
     }),
     put = op({
-      tags = { "rbac" }, operationId = "updateRbacMatrix", summary = "Matris guncelle",
+      tags = { "rbac" }, operationId = "updateRbacMatrix", summary = "Matris güncelle",
       ["x-page-key"] = "rbac.matrix",
       requestBody = json_body("RbacMatrixUpdate", { permissions = { { role = "admin", page_key = "dashboard", can_access = true } } }),
-      responses = { ["200"] = resp("Guncellendi", data_of(ref("RbacMatrix"))) },
+      responses = { ["200"] = resp("Güncellendi", data_of(ref("RbacMatrix"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "CONFLICT", "VALIDATION_FAILED" },
     }),
   }
@@ -957,10 +968,10 @@ local function paths()
       { name = "page_key", ["in"] = "path", required = true, schema = ref("PageKey") },
     },
     patch = op({
-      tags = { "rbac" }, operationId = "setRbacCell", summary = "Hucre guncelle",
+      tags = { "rbac" }, operationId = "setRbacCell", summary = "Hucre güncelle",
       ["x-page-key"] = "rbac.matrix",
       requestBody = json_body("RbacCellUpdate", { can_access = true }),
-      responses = { ["200"] = resp("Guncellendi", data_of(ref("RbacMatrix"))) },
+      responses = { ["200"] = resp("Güncellendi", data_of(ref("RbacMatrix"))) },
       errors = { "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "VALIDATION_FAILED" },
     }),
   }
@@ -975,7 +986,7 @@ local function paths()
   -- audit
   p["/audit/logs"] = {
     get = op({
-      tags = { "audit" }, operationId = "listAuditLogs", summary = "Denetim kayitlari",
+      tags = { "audit" }, operationId = "listAuditLogs", summary = "Denetim kayıtları",
       ["x-page-key"] = "audit.logs",
       parameters = { qp("Action"), qp("AuditStatus"), qp("EntityType"), qp("EntityId"), qp("UserIdQuery"), qp("UserEmail"), qp("Ip"), qp("From"), qp("To"), qp("Page"), qp("PerPage"), qp("Search") },
       responses = { ["200"] = resp("Liste", page_of("AuditLogSummary")) },
@@ -1076,15 +1087,15 @@ function _M.build()
     security = { { bearerAuth = EMPTY } },
     tags = {
       { name = "auth", description = "Kimlik dogrulama" },
-      { name = "connections", description = "Baglanti yonetimi" },
-      { name = "schema", description = "Sema ve yapi kesfi" },
-      { name = "query", description = "Sorgu calistirma ve gecmis" },
-      { name = "table", description = "Tablo tarayici" },
+      { name = "connections", description = "Bağlantı yönetimi" },
+      { name = "schema", description = "Şema ve yapı kesfi" },
+      { name = "query", description = "Sorgu çalıştırma ve gecmis" },
+      { name = "table", description = "Tablo tarayıcı" },
       { name = "objects", description = "Obje eylemleri ve script" },
-      { name = "export", description = "CSV disa aktarim" },
-      { name = "users", description = "Kullanici yonetimi (admin)" },
+      { name = "export", description = "CSV dışa aktarim" },
+      { name = "users", description = "Kullanıcı yönetimi (admin)" },
       { name = "rbac", description = "Rol-sayfa izin matrisi (admin)" },
-      { name = "audit", description = "Denetim kayitlari (admin)" },
+      { name = "audit", description = "Denetim kayıtları (admin)" },
       { name = "system", description = "Saglik ve dokumantasyon" },
     },
     components = {

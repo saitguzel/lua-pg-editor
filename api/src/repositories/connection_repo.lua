@@ -1,4 +1,4 @@
--- Baglanti repository: CRUD + arama, sahiplik kontrolu
+-- Bağlantı repository: CRUD + arama, sahiplik kontrolu
 local query = require("db.query")
 
 local _M = {}
@@ -91,7 +91,7 @@ function _M.update(id, fields)
   for k, expr in pairs(set_map) do
     if fields[k] ~= nil then
       params[#params + 1] = fields[k]
-      -- validation.NULL veya cjson.null (userdata) -> SQL NULL; db/query normalize zaten yapiyor
+      -- validation.NULL veya cjson.null (userdata) -> SQL NULL; db/query normalize zaten yapıyor
       local sql = expr:gsub("%$%?", "$" .. #params)
       sets[#sets + 1] = sql
     end

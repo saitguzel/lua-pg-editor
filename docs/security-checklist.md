@@ -38,11 +38,13 @@
 
 ## 5. SQL & Enjeksiyon
 
-- [ ] Meta DB tüm sorgular parametreli `$1..` (grep `..sql..` → `$` yoksa red).
-- [ ] Hedef DB `WHERE` builder whitelist + `$?` → `$n`; `ORDER BY` kolon whitelist.
-- [ ] `custom_where` `safe_sql` + `;` yasak + `SELECT` yasak; `sql_parser` testli.
-- [ ] `quote_ident` ile DDL (`ALTER TABLE`, `DROP`) — ham interpolate yok.
-- [ ] `CSV export` `BEGIN READ ONLY` + `COPY` → yazma engelli; `READONLY_VIOLATION` 422.
+- [x] Meta DB tüm sorgular parametreli `$1..` (grep `..sql..` → `$` yoksa red). Faz-31 `where_raw` kaldırıldı, `grep where_raw` boş.
+- [x] Hedef DB `WHERE` builder whitelist + `$?` → `$n`; `ORDER BY` kolon whitelist; `LIMIT/OFFSET` parametreli `$n` (faz-31).
+- [x] `custom_where` `safe_sql` + `; -- /* $n` + `SELECT/UNION/COPY/pg_` yasak + kolon allow-list + parantez derinlik 10; `sql_parser.validate_expression` testli (faz-31).
+- [x] `quote_ident` ile DDL (`ALTER TABLE`, `DROP`) — ham interpolate yok.
+- [x] `CSV export` `BEGIN READ ONLY` + `COPY` → yazma engelli; `READONLY_VIOLATION` 422.
+- [x] Yıkıcı sorgu backend guard: `DROP/TRUNCATE/WHERE'siz DELETE/ALTER DROP` → `DESTRUCTIVE_REQUIRES_CONFIRM` 409, `confirm=true` ile retry (faz-32).
+- [x] Rol bazlı okuma kısıtı: `editor` yalnızca `SELECT/WITH/SHOW/EXPLAIN/VALUES` → `FORBIDDEN` 403 (faz-32).
 
 ## 6. Rate Limit & DoS
 

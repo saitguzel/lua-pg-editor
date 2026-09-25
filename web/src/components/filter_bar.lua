@@ -1,4 +1,4 @@
--- F19: Filtre paneli (codd Filters popover) — kolon + operator + deger satirlari (AND), Custom SQL,
+-- F19: Filtre paneli (codd Filters popover) — kolon + operator + deger satırlari (AND), Custom SQL,
 -- Filtre ekle / Temizle / Uygula. Değişiklikler taslakta tutulur; yalnizca Uygula URL'ye yazar (her tusta sorgu yok).
 local dom = require("dom")
 local types = require("pg_shared.types")

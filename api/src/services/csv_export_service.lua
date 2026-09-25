@@ -14,7 +14,7 @@ local _M = {}
 local function get_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
-  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi") end
+  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı") end
   return row
 end
 
@@ -50,7 +50,7 @@ function _M.stream_query_csv(ngx, identity, input)
   pool_manager.release(cid, pg, csv_data==nil)
   if not csv_data then
     if type(meta)=="table" and meta.__app_error then return nil, meta end
-    return nil, errors.new("QUERY_FAILED", "CSV olusturulamadi", { db_message=tostring(meta) })
+    return nil, errors.new("QUERY_FAILED", "CSV oluşturulamadi", { db_message=tostring(meta) })
   end
   -- header'lar handler'da ayarlanacak; burada sadece veri ve audit
   audit_service.record("query.export.csv", { entity_type="query", entity_id=input.connection_id, new_value={ connection_id=input.connection_id, database=database, rows=meta.rows, truncated=meta.truncated, format=input.format or "csv" } })
@@ -67,15 +67,15 @@ function _M.stream_table_csv(ngx, identity, connection_id, schema, table_name, o
   if not pg then return nil, cid end
   local cfg = config.get()
   local max_rows = cfg and cfg.csv and cfg.csv.max_rows or 100000
-  -- filtre/siralama tablo tarayicisiyla ayni kurallar (kolon var mi, operator tipe uygun mu)
+  -- filtre/siralama tablo tarayıcısiyla ayni kurallar (kolon var mi, operator tipe uygun mu)
   local browser_service = require("services.table_browser_service")
   local tmeta, terr = browser_service.describe(pg, schema, table_name)
   local function fail(e) pool_manager.release(cid, pg, false); return nil, e end
-  if not tmeta then return fail(errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadi", { db_message = tostring(terr and terr.message) })) end
+  if not tmeta then return fail(errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadı", { db_message = tostring(terr and terr.message) })) end
   local filters, ferr = browser_service._validate_filters(opts.filters, tmeta)
   if not filters then return fail(errors.new("VALIDATION_FAILED", ferr, { filters = { ferr } })) end
   if opts.custom_where and opts.custom_where ~= "" then
-    local vok, verr = sql_parser.validate_expression(opts.custom_where)
+    local vok, verr = sql_parser.validate_expression(opts.custom_where, tmeta.by_name)
     if not vok then return fail(errors.new("BAD_REQUEST", "custom_where: " .. verr)) end
   end
   local order_by
@@ -90,7 +90,7 @@ function _M.stream_table_csv(ngx, identity, connection_id, schema, table_name, o
   pool_manager.release(cid, pg, csv_data==nil)
   if not csv_data then
     if type(meta)=="table" and meta.__app_error then return nil, meta end
-    return nil, errors.new("QUERY_FAILED", "CSV olusturulamadi", { db_message=tostring(meta) })
+    return nil, errors.new("QUERY_FAILED", "CSV oluşturulamadi", { db_message=tostring(meta) })
   end
   audit_service.record("query.export.csv", { entity_type="query", entity_id=connection_id, new_value={ connection_id=connection_id, schema=schema, table=table_name, rows=meta.rows, format=opts.format or "csv" } })
   return csv_data, meta
@@ -111,7 +111,7 @@ function _M.export_query_csv(identity, input)
   pool_manager.release(cid, pg, csv_data==nil)
   if not csv_data then
     if type(meta)=="table" and meta.__app_error then return nil, meta end
-    return nil, errors.new("QUERY_FAILED", "CSV olusturulamadi")
+    return nil, errors.new("QUERY_FAILED", "CSV oluşturulamadi")
   end
   audit_service.record("query.export.csv", { entity_type="query", entity_id=input.connection_id, new_value={ connection_id=input.connection_id, database=database, rows=meta.rows } })
   return { csv=csv_data, meta=meta }

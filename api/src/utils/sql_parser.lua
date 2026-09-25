@@ -59,7 +59,6 @@ function _M.sql_statements(sql)
   local in_line = false
   local in_block = false
   local dollar_tag = nil
-  local dollar_end = nil
 
   while i <= n do
     local c = sql:sub(i, i)
@@ -247,7 +246,7 @@ function _M.contains_any_keyword_outside_literals(sql, keywords)
   return false
 end
 
--- sema degistiren ifade mi?
+-- şema degistiren ifade mi?
 local SCHEMA_KEYWORDS = { "alter", "create", "drop", "comment", "grant", "revoke", "reindex", "truncate" }
 function _M.changes_schema(sql)
   if type(sql) ~= "string" then return false end
@@ -305,19 +304,62 @@ end
 
 -- custom_where icin guvenlik (codd kurallari + parantez dengesi): ifade "(...)" icine konur,
 -- yorum/parametre/kapanmamis parantez ile WHERE'den kacip baska SQL eklenemez
-function _M.validate_expression(expr)
+-- allowed_columns: opsiyonel set { [kolon_adi]=true } ; verilirse bilinmeyen kolon/fonksiyon reddedilir
+local FORBIDDEN_EXPR = {
+  "select", "insert", "update", "delete", "drop", "truncate", "create", "alter",
+  "grant", "revoke", "comment", "reindex", "vacuum", "cluster", "copy", "union",
+  "into", "exec", "execute", "declare", "fetch", "with", "having", "window",
+}
+local SQL_KEYWORDS = {
+  ["and"]=true, ["or"]=true, ["not"]=true, ["is"]=true, ["null"]=true, ["like"]=true, ["ilike"]=true,
+  ["between"]=true, ["in"]=true, ["exists"]=true, ["true"]=true, ["false"]=true,
+}
+
+function _M.validate_expression(expr, allowed_columns)
   if type(expr) ~= "string" or expr:match("^%s*$") then return false, "bos ifade" end
   if #expr > 5000 then return false, "en fazla 5000 karakter" end
   if expr:find(";") then return false, "noktali virgul iceremez" end
   if expr:find("--", 1, true) or expr:find("/*", 1, true) then return false, "yorum iceremez" end
   if expr:find("%$%d") then return false, "parametre ($n) iceremez" end
   if _M.contains_transaction_control(expr) then return false, "transaction deyimi iceremez" end
-  local depth = 0
+  -- yasak kelimeler (literal/yorum disinda)
+  for _, kw in ipairs(FORBIDDEN_EXPR) do
+    if _M.contains_keyword_outside_literals(expr, kw) then return false, kw .. " iceremez" end
+  end
+  -- pg_ prefix (pg_sleep vb.)
+  if stripped_for_search(expr):lower():find("pg_%w+") then return false, "pg_ iceremez" end
+  -- parantez dengesi ve derinlik limiti (10)
+  local depth, max_depth = 0, 0
   for ch in expr:gsub("'[^']*'", ""):gmatch("[()]") do
     depth = depth + (ch == "(" and 1 or -1)
+    if depth > max_depth then max_depth = depth end
+    if max_depth > 10 then return false, "parantez derinligi fazla" end
     if depth < 0 then return false, "parantezler dengesiz" end
   end
   if depth ~= 0 then return false, "parantezler dengesiz" end
+  -- kolon allow-list (verildiyse): identifier'lar izinli kolon veya SQL anahtar kelimesi olmali
+  -- fonksiyon adi (arkasinda '(') ise kolon kontrolunden muaf (pg_ zaten yukarida reddedildi)
+  if allowed_columns and next(allowed_columns) ~= nil then
+    local allowed_lower = {}
+    for k in pairs(allowed_columns) do allowed_lower[k:lower()] = true end
+    local stripped = _M._stripped_for_search(expr):lower()
+    local pos = 1
+    while true do
+      local s, e, tok = stripped:find("([%a_][%w_]*)", pos)
+      if not s then break end
+      -- arkasi '(' mi? (bosluklari atla)
+      local after = stripped:sub(e + 1):match("^%s*(.)")
+      local is_func = after == "("
+      if not is_func and not SQL_KEYWORDS[tok] and not allowed_lower[tok] then
+        local is_forbidden = false
+        for _, fk in ipairs(FORBIDDEN_EXPR) do if fk == tok then is_forbidden = true; break end end
+        if not is_forbidden then
+          return false, "bilinmeyen kolon: " .. tok
+        end
+      end
+      pos = e + 1
+    end
+  end
   return true
 end
 

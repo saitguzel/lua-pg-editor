@@ -1,5 +1,5 @@
 -- Nesne eylemleri (codd sidebar menusu): script (yeni sorgu sekmesinde), yeniden adlandir, bosalt, sil.
--- Sidebar ve yapi sayfasi ortak kullanir. ctx = { connection_id, database, schema, name, kind }
+-- Sidebar ve yapı sayfasi ortak kullanir. ctx = { connection_id, database, schema, name, kind }
 local app = require("app")
 local api = require("fetch")
 local router = require("router")
@@ -28,7 +28,7 @@ end
 
 local function fail(err) app.toast("error", err and err.message or protocol.message(err and err.code)) end
 
--- sema degisti: sidebar + autocomplete tazelensin; acik sayfa bu nesneyi gösteriyorsa yonlendir
+-- şema degisti: sidebar + autocomplete tazelensin; acik sayfa bu nesneyi gösteriyorsa yonlendir
 local function after_change(ctx, new_name)
   pcall(function() require("views.schema_sidebar").reload() end)
   local st = app.get_state()
@@ -112,7 +112,7 @@ function _M.drop(ctx)
   end)
 end
 
--- sidebar/yapi menusu ogeleri (izinlere gore); extra: basa eklenecek ogeler
+-- sidebar/yapı menusu ogeleri (izinlere gore); extra: basa eklenecek ogeler
 function _M.menu_items(ctx, extra)
   local items = extra or {}
   local function copy(text) js.clipboard(text); app.toast("success", "Kopyalandı") end

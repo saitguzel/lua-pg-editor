@@ -147,7 +147,7 @@ function _M.refresh(refresh_token)
   end
   local user, uerr = user_repo.find_by_id(claims.user_id)
   if uerr then return nil, uerr end
-  if not user then return nil, errors.new("UNAUTHORIZED", "Kullanici bulunamadi") end
+  if not user then return nil, errors.new("UNAUTHORIZED", "Kullanıcı bulunamadı") end
   if not user.is_active then return nil, errors.new("ACCOUNT_DISABLED", "Hesabiniz pasif durumda") end
   _M.revoke_jti(claims.jti, claims.exp)
   local tokens = _M.issue_tokens(user)
@@ -244,7 +244,7 @@ function _M.reset_password(token, new_password)
     local row, ferr = user_repo.reset_token_find_valid_for_update(hash)
     if ferr then return nil, ferr end
     if not row then
-      return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus baglanti")
+      return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus bağlantı")
     end
     local ok1, e1 = user_repo.update_password(row.user_id, new_hash)
     if not ok1 then return nil, e1 end
@@ -262,7 +262,7 @@ end
 function _M.me(identity)
   local user, uerr = user_repo.find_by_id(identity.user_id)
   if uerr then return nil, uerr end
-  if not user then return nil, errors.new("USER_NOT_FOUND", "Kullanici bulunamadi") end
+  if not user then return nil, errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı") end
   return user_model.serialize(user), nil
 end
 
@@ -275,9 +275,9 @@ function _M.verify_reset_token(token)
     hash
   )
   if err then return nil, err end
-  if not row then return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus baglanti") end
+  if not row then return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus bağlantı") end
   if row.used_at ~= nil and row.used_at ~= cjson.null then
-    return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus baglanti")
+    return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus bağlantı")
   end
   -- expires_at check (pg returns string ISO)
   if row.expires_at then
@@ -287,7 +287,7 @@ function _M.verify_reset_token(token)
       hash
     )
     if verr then return nil, verr end
-    if not valid then return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus baglanti") end
+    if not valid then return nil, errors.new("RESET_TOKEN_INVALID", "Gecersiz veya suresi dolmus bağlantı") end
   end
   return true
 end

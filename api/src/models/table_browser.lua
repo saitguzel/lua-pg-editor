@@ -27,7 +27,7 @@ function _M.is_allowed_operator(op, type_group)
   return allowed[op] == true
 end
 
--- Satiri hucre DTO'ya cevir: null -> { value="NULL", is_null=true }
+-- Satıri hucre DTO'ya cevir: null -> { value="NULL", is_null=true }
 local function cell_value(v)
   if v == nil or v == cjson.null or v == ngx.null then
     return { value = "NULL", is_null = true }

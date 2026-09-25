@@ -1,4 +1,4 @@
--- Baglanti HTTP handler'lari: list, create, get, update, delete, test, list_databases
+-- Bağlantı HTTP handler'lari: list, create, get, update, delete, test, list_databases
 local validation = require("pg_shared.validation")
 local errors = require("middleware.error_handler")
 local connections_service = require("services.connections_service")
@@ -8,7 +8,7 @@ local _M = {}
 function _M.list()
   local args = ngx.req.get_uri_args()
   local clean, v_err = validation.validate(validation.schemas.pagination or validation.schema({ page = validation.optional(validation.query_int({ min = 1, default = 1 })), per_page = validation.optional(validation.query_int({ min = 1, max = 100, default = 20 })), search = validation.optional(validation.string({ max = 100 })), q = validation.optional(validation.string({ max = 100 })) }), args)
-  -- fallback: pagination semasi yoksa manuel parse
+  -- fallback: pagination şemasi yoksa manuel parse
   if not clean then
     -- try simple validation for pagination params
     local page = tonumber(args.page) or 1

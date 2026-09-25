@@ -48,7 +48,7 @@ function _M.set_cell(self)
   local role = self.params and self.params.role
   local page_key = self.params and self.params.page_key
   if not role or not page_key then
-    return errors.respond(errors.new("NOT_FOUND", "Kaynak bulunamadi"))
+    return errors.respond(errors.new("NOT_FOUND", "Kaynak bulunamadı"))
   end
   local input, err = errors.read_json_body()
   if not input then return errors.respond(err) end

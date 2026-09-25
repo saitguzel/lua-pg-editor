@@ -10,7 +10,7 @@ describe("statement_timeout & rate limit (integration)", function()
     h.reset_db()
     admin = h.login_admin()
     local list = h.request("GET", "/connections", nil, admin.access_token)
-    conn_id = assert(list.body.data[1] and list.body.data[1].id, "seed baglantisi yok")
+    conn_id = assert(list.body.data[1] and list.body.data[1].id, "seed bağlantısi yok")
   end)
 
   local function execute(sql)

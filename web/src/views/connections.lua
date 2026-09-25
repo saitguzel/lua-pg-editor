@@ -246,7 +246,7 @@ local function connection_form(state)
           ssh_passphrase = ssh_auth == "private_key" and dom.value("conn-ssh-passphrase") or nil,
           ssl_mode = dom.value("conn-ssl"),
         }
-        -- sirlar: bos = degistirme (duzenleme) / yok (yeni)
+        -- sirlar: bos = degistirme (düzenleme) / yok (yeni)
         if input.ssh_secret == "" then input.ssh_secret = nil end
         if input.ssh_passphrase == "" then input.ssh_passphrase = nil end
         -- bos string -> nil (optional alanlar)
@@ -260,7 +260,7 @@ local function connection_form(state)
         if input.ssh_auth_method == "" then input.ssh_auth_method = nil end
         -- port string -> number
         if input.port ~= "" then input.port = tonumber(input.port) end
-        -- duzenlemede parola bos ise gonderme (degistirme)
+        -- düzenlemede parola bos ise gonderme (degistirme)
         if is_edit and (input.password == "" or input.password == nil) then
           input.password = nil
         elseif input.password == "" then

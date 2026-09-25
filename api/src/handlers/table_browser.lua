@@ -1,4 +1,4 @@
--- Tablo tarayici handler: rows CRUD + duplicate
+-- Tablo tarayıcı handler: rows CRUD + duplicate
 local validation = require("pg_shared.validation")
 local errors = require("middleware.error_handler")
 local table_browser_service = require("services.table_browser_service")
@@ -16,7 +16,7 @@ function _M.list_rows(self)
   local clean, v = validation.validate(validation.schemas.object_ref, { schema = self.params.schema, name = self.params.table or self.params.name })
   if not clean then return errors.respond(errors.validation(v)) end
   local args = ngx.req.get_uri_args()
-  -- table_rows_query semasi
+  -- table_rows_query şemasi
   local q_in = {
     page = args.page,
     per_page = args.per_page,

@@ -103,7 +103,7 @@ describe("query reducer", function()
     assert.equal(2, s.query.active_tab)
   end)
 
-  it("QUERY_RUN_REQUESTED/SUCCEEDED/FAILED durumu gunceller", function()
+  it("QUERY_RUN_REQUESTED/SUCCEEDED/FAILED durumu günceller", function()
     local s = run({ type = "QUERY_TAB_CREATED" })
     local id = s.query.tabs[1].id
     s = app.root_reducer(s, { type = "QUERY_RUN_REQUESTED", id = id })

@@ -72,7 +72,7 @@ function _M.script(pg, kind, oid, script_kind)
   if not r then return nil, err end
   if script_kind == "drop" then return _M.drop_script(kind, r) end
   if script_kind == "execute" then
-    if kind == "trigger" then return nil, { code = "22023", message = "trigger dogrudan calistirilamaz" } end
+    if kind == "trigger" then return nil, { code = "22023", message = "trigger dogrudan çalıştırilamaz" } end
     return _M.call_script(kind, r)
   end
   if kind == "trigger" then

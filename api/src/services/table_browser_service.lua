@@ -1,5 +1,5 @@
--- Tablo tarayici servis: filtreli liste, satir CRUD, cogaltma, audit.
--- codd kurallari: satir islemleri yalnizca PK'li tablolarda; PK/identity(ALWAYS)/generated/bytea kolonlari
+-- Tablo tarayıcı servis: filtreli liste, satır CRUD, cogaltma, audit.
+-- codd kurallari: satır islemleri yalnizca PK'li tablolarda; PK/identity(ALWAYS)/generated/bytea kolonlari
 -- duzenlenemez; view/matview salt okunur.
 local cjson = require("cjson.safe")
 local connection_repo = require("repositories.connection_repo")
@@ -19,7 +19,7 @@ local EDITABLE_KINDS = { table = true, partitioned = true }
 local function get_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
-  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi") end
+  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı") end
   return row
 end
 
@@ -27,11 +27,11 @@ local function map_target(err)
   if type(err) == "table" and err.__app_error then return err end
   local sqlstate = type(err) == "table" and err.code or nil
   local msg = type(err) == "table" and (err.message or tostring(err)) or tostring(err)
-  if sqlstate == "42P01" then return errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadi", { sqlstate = sqlstate }) end
-  return errors.new("QUERY_FAILED", "Sorgu calistirilamadi", { sqlstate = sqlstate, db_message = msg })
+  if sqlstate == "42P01" then return errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadı", { sqlstate = sqlstate }) end
+  return errors.new("QUERY_FAILED", "Sorgu çalıştırilamadi", { sqlstate = sqlstate, db_message = msg })
 end
 
--- Hedef tablo meta'si: kolon DTO'lari, PK kolonlari, tur, satir duzenlenebilir mi
+-- Hedef tablo meta'si: kolon DTO'lari, PK kolonlari, tur, satır duzenlenebilir mi
 local function describe(pg, schema, table_name)
   local rows, err = target_schema_repo.list_columns(pg, schema, table_name)
   if not rows then return nil, err end
@@ -47,7 +47,7 @@ local function describe(pg, schema, table_name)
     editable = EDITABLE_KINDS[kind] == true and #pk > 0 }
 end
 
--- Baglanti + tablo meta'si ile calis; fn(pg, meta) → sonuc | nil, hata. Havuz her durumda birakilir.
+-- Bağlantı + tablo meta'si ile calis; fn(pg, meta) → sonuc | nil, hata. Havuz her durumda birakilir.
 local function with_table(identity, connection_id, database, schema, table_name, fn)
   local conn_row, err = get_owned(identity, connection_id)
   if not conn_row then return nil, err end
@@ -68,9 +68,9 @@ end
 local function require_editable(meta)
   if meta.editable then return true end
   if not EDITABLE_KINDS[meta.kind] then
-    return nil, errors.new("VALIDATION_FAILED", "View/matview satirlari duzenlenemez")
+    return nil, errors.new("VALIDATION_FAILED", "View/matview satırlari duzenlenemez")
   end
-  return nil, errors.new("VALIDATION_FAILED", "Birincil anahtari olmayan tabloda satir duzenlenemez")
+  return nil, errors.new("VALIDATION_FAILED", "Birincil anahtari olmayan tabloda satır duzenlenemez")
 end
 
 -- filtreler: kolon var mi, operator kolon tipine uygun mu (pg_shared.types.FILTER_OPS_BY_GROUP)
@@ -103,7 +103,7 @@ function _M.list(identity, connection_id, schema, table_name, query)
     local filters, ferr = validate_filters(query.filters, meta)
     if not filters then return nil, errors.new("VALIDATION_FAILED", ferr, { filters = { ferr } }) end
     if query.custom_where and query.custom_where ~= "" then
-      local ok, verr = sql_parser.validate_expression(query.custom_where)
+      local ok, verr = sql_parser.validate_expression(query.custom_where, meta.by_name)
       if not ok then return nil, errors.new("BAD_REQUEST", "custom_where: " .. verr) end
     end
     local page, qerr = target_browser.fetch_rows(pg, schema, table_name, meta.columns, {
@@ -157,14 +157,14 @@ function _M.update(identity, connection_id, schema, table_name, rid, values, dat
   return with_table(identity, connection_id, database, schema, table_name, function(pg, meta)
     local ok, err = require_editable(meta)
     if not ok then return nil, err end
-    if not next(values) then return nil, errors.new("VALIDATION_FAILED", "guncellenecek alan yok") end
+    if not next(values) then return nil, errors.new("VALIDATION_FAILED", "güncellenecek alan yok") end
     ok, err = check_values(values, meta, false)
     if not ok then return nil, err end
     local where, rerr = target_browser.decode_rid(rid, meta.pk)
     if not where then return nil, errors.new("BAD_REQUEST", rerr) end
     local res, qerr = target_browser.update_rows(pg, schema, table_name, where, values)
     if not res then return nil, qerr end
-    if not res[1] then return nil, errors.new("ROW_NOT_FOUND", "Satir bulunamadi") end
+    if not res[1] then return nil, errors.new("ROW_NOT_FOUND", "Satır bulunamadı") end
     local row = res[1]
     row._rid = target_browser.encode_rid(row, meta.pk)
     audit_service.record("table.row.update", { entity_type = "table_row", entity_id = rid,
@@ -199,7 +199,7 @@ function _M.duplicate(identity, connection_id, schema, table_name, rid, database
     if not where then return nil, errors.new("BAD_REQUEST", rerr) end
     local src, serr = target_browser.fetch_one_by_rid(pg, schema, table_name, where)
     if serr then return nil, serr end
-    if not src then return nil, errors.new("ROW_NOT_FOUND", "Satir bulunamadi") end
+    if not src then return nil, errors.new("ROW_NOT_FOUND", "Satır bulunamadı") end
     local vals = {}
     for _, c in ipairs(meta.columns) do
       if not (c.is_primary_key or c.is_identity or c.is_generated) and src[c.name] ~= nil then

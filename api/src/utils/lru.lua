@@ -19,7 +19,7 @@ function _M.new(max_size, ttl_seconds)
       return nil
     end
     entry.touched = now
-    -- order guncelle
+    -- order güncelle
     for i, k in ipairs(self.order) do
       if k == key then
         table.remove(self.order, i)
@@ -35,7 +35,7 @@ function _M.new(max_size, ttl_seconds)
     if self.map[key] then
       self.map[key].value = value
       self.map[key].touched = now
-      -- order guncelle
+      -- order güncelle
       for i, k in ipairs(self.order) do
         if k == key then table.remove(self.order, i); break end
       end

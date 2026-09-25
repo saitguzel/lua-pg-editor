@@ -1,4 +1,4 @@
--- Baglanti servis: CRUD, sahiplik, crypto, pool_manager, audit
+-- Bağlantı servis: CRUD, sahiplik, crypto, pool_manager, audit
 local connection_repo = require("repositories.connection_repo")
 local connection_model = require("models.connection")
 local errors = require("middleware.error_handler")
@@ -43,7 +43,7 @@ function _M.get(identity, id)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   return connection_model.serialize(row)
 end
@@ -66,7 +66,7 @@ function _M.create(identity, input)
   -- name unique per user
   local existing, _ = connection_repo.find_by_user_and_name(identity.user_id, input.name)
   if existing then
-    return nil, errors.new("CONFLICT", "Ayni isimde baglanti zaten var")
+    return nil, errors.new("CONFLICT", "Ayni isimde bağlantı zaten var")
   end
   -- password encrypt: yalnizca save_password ise kalici saklanir, degilse bellekte (pool_manager)
   local enc = nil
@@ -132,14 +132,14 @@ function _M.update(identity, id, input)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   local old_serialized = connection_model.serialize(row)
   -- name degisti ise unique kontrol
   if input.name and input.name ~= row.name then
     local dup = connection_repo.find_by_user_and_name(identity.user_id, input.name)
     if dup then
-      return nil, errors.new("CONFLICT", "Ayni isimde baglanti zaten var")
+      return nil, errors.new("CONFLICT", "Ayni isimde bağlantı zaten var")
     end
   end
   local fields = {}
@@ -213,12 +213,12 @@ function _M.delete(identity, id)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   local old_serialized = connection_model.serialize(row)
   local deleted, derr = connection_repo.delete(id)
   if derr then return nil, derr end
-  if not deleted then return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi") end
+  if not deleted then return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı") end
   pool_manager.invalidate(id)
   local audit_service = require("services.audit_service")
   audit_service.record("connection.delete", {
@@ -232,10 +232,10 @@ function _M.test_connection(identity, id)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   local start = ngx.now()
-  -- pool_manager acquire: decrypt iceride yapiliyor ama biz de log icin kontrol edelim
+  -- pool_manager acquire: decrypt iceride yapıliyor ama biz de log icin kontrol edelim
   local pg, acq_err = pool_manager.acquire(row)
   if not pg then
     local latency = math.floor((ngx.now() - start) * 1000)
@@ -249,7 +249,7 @@ function _M.test_connection(identity, id)
     if type(acq_err) == "table" and acq_err.__app_error then
       return nil, acq_err
     end
-    return nil, errors.new("CONNECTION_FAILED", "Baglanti kurulamadi", { db_message = tostring(acq_err and acq_err.message or acq_err) })
+    return nil, errors.new("CONNECTION_FAILED", "Bağlantı kurulamadı", { db_message = tostring(acq_err and acq_err.message or acq_err) })
   end
   -- SELECT 1 test
   -- F30: read_only → hedef rol salt okunur (default_transaction_read_only); UI'da RO rozeti
@@ -269,7 +269,7 @@ function _M.test_connection(identity, id)
     error_message = not success and tostring(qerr) or nil,
   })
   if not success then
-    return nil, errors.new("CONNECTION_FAILED", "Baglanti testi basarisiz", { db_message = tostring(qerr) })
+    return nil, errors.new("CONNECTION_FAILED", "Bağlantı testi basarisiz", { db_message = tostring(qerr) })
   end
   return { success = true, latency_ms = latency, pg_version = pg_version, read_only = read_only }
 end
@@ -278,7 +278,7 @@ local function owned(identity, id)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   return row
 end
@@ -301,7 +301,7 @@ function _M.unlock(identity, id, password)
   return { unlocked = true }
 end
 
--- SSH sunucu anahtari (TOFU): parmak izlerini goster; kullanici onaylayinca kaydet
+-- SSH sunucu anahtari (TOFU): parmak izlerini goster; kullanıcı onaylayinca kaydet
 function _M.ssh_host_key(identity, id)
   local row, err = owned(identity, id)
   if not row then return nil, err end
@@ -320,7 +320,7 @@ function _M.trust_ssh_host_key(identity, id, fingerprint)
   local ssh_tunnel = require("db.ssh_tunnel")
   local lines, serr = ssh_tunnel.scan(row.ssh_host, row.ssh_port or 22)
   if not lines then return nil, errors.new("CONNECTION_FAILED", "SSH sunucusuna ulasilamadi", { db_message = tostring(serr) }) end
-  -- sunucu anahtari yeniden taranir: kullanicinin gordugu parmak izi hala sunucununki olmali
+  -- sunucu anahtari yeniden taranir: kullanıcınin gordugu parmak izi hala sunucununki olmali
   local match = false
   for _, fp in ipairs(ssh_tunnel.fingerprints(lines)) do if fp.fingerprint == fingerprint then match = true end end
   if not match then return nil, errors.new("CONFLICT", "Parmak izi sunucunun anahtariyla eslesmiyor") end
@@ -335,12 +335,12 @@ function _M.list_databases(identity, id)
   local row, err = connection_repo.find_by_id(id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   local pg, acq_err = pool_manager.acquire(row)
   if not pg then
     if type(acq_err) == "table" and acq_err.__app_error then return nil, acq_err end
-    return nil, errors.new("CONNECTION_FAILED", "Baglanti kurulamadi", { db_message = tostring(acq_err and acq_err.message or acq_err) })
+    return nil, errors.new("CONNECTION_FAILED", "Bağlantı kurulamadı", { db_message = tostring(acq_err and acq_err.message or acq_err) })
   end
   local res, qerr = pg:query("SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname")
   pool_manager.release(id, pg, res == nil)

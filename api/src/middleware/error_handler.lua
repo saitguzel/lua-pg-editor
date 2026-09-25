@@ -81,7 +81,7 @@ end
 function _M.require_uuid_param(self, name, not_found_code)
   local v = self.params and self.params[name]
   if not validation.is_uuid(v) then
-    return nil, _M.new(not_found_code or "NOT_FOUND", "Kaynak bulunamadi")
+    return nil, _M.new(not_found_code or "NOT_FOUND", "Kaynak bulunamadı")
   end
   return v, nil
 end

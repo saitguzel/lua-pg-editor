@@ -15,23 +15,23 @@ _M.PAGES = {
 }
 
 _M.PAGE_META = {
-  dashboard = { label = "Gosterge Paneli", group = "genel" },
-  ["connections.list"] = { label = "Baglantilar", group = "connections" },
-  ["connections.create"] = { label = "Baglanti Yonetimi", group = "connections" },
-  ["query.execute"] = { label = "Sorgu Calistir", group = "query" },
-  ["query.history"] = { label = "Sorgu Gecmisi", group = "query" },
-  ["query.ai"] = { label = "AI ile Sorgu Olustur", group = "query" },
-  ["schema.browser"] = { label = "Sema Tarayici", group = "browse" },
-  ["table.browser"] = { label = "Tablo Tarayici", group = "browse" },
-  ["table.edit"] = { label = "Satir Duzenleme", group = "browse" },
-  ["structure.view"] = { label = "Yapi Inceleme", group = "browse" },
+  dashboard = { label = "Gösterge Paneli", group = "genel" },
+  ["connections.list"] = { label = "Bağlantılar", group = "connections" },
+  ["connections.create"] = { label = "Bağlantı Yönetimi", group = "connections" },
+  ["query.execute"] = { label = "Sorgu Çalıştır", group = "query" },
+  ["query.history"] = { label = "Sorgu Geçmişi", group = "query" },
+  ["query.ai"] = { label = "AI ile Sorgu Oluştur", group = "query" },
+  ["schema.browser"] = { label = "Şema Tarayıcı", group = "browse" },
+  ["table.browser"] = { label = "Tablo Tarayıcı", group = "browse" },
+  ["table.edit"] = { label = "Satır Düzenleme", group = "browse" },
+  ["structure.view"] = { label = "Yapı İnceleme", group = "browse" },
   ["object.actions"] = { label = "Obje Eylemleri", group = "admin" },
-  ["script.generate"] = { label = "Script Uretimi", group = "browse" },
-  ["export.csv"] = { label = "CSV Disa Aktar", group = "query" },
-  ["users.list"] = { label = "Kullanici Listesi", group = "admin" },
-  ["users.create"] = { label = "Kullanici Yonetimi", group = "admin" },
+  ["script.generate"] = { label = "Script Üretimi", group = "browse" },
+  ["export.csv"] = { label = "CSV Dışa Aktar", group = "query" },
+  ["users.list"] = { label = "Kullanıcı Listesi", group = "admin" },
+  ["users.create"] = { label = "Kullanıcı Yönetimi", group = "admin" },
   ["rbac.matrix"] = { label = "Yetki Matrisi", group = "admin" },
-  ["audit.logs"] = { label = "Denetim Kayitlari", group = "admin" },
+  ["audit.logs"] = { label = "Denetim Kayıtları", group = "admin" },
   settings = { label = "Ayarlar", group = "admin" },
 }
 
@@ -72,7 +72,7 @@ _M.OBJECT_CATEGORIES = {
 _M.OBJECT_KINDS = { "table", "view", "matview", "partitioned", "foreign", "sequence",
   "function", "aggregate", "window", "procedure", "type_base", "type_composite", "type_enum", "type_range",
   "domain", "extension", "operator", "collation", "fts_config", "fts_dict", "fts_parser", "fts_template" }
--- iliski (pg_class) olan turler: tarayici/yapi sekmeleri bunlar icin
+-- iliski (pg_class) olan turler: tarayıcı/yapı sekmeleri bunlar icin
 _M.RELATION_KINDS = { "table", "view", "matview", "partitioned", "foreign" }
 _M.SCRIPT_KINDS = { "select", "insert", "update", "delete", "create", "drop", "truncate" }
 

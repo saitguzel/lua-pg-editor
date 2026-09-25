@@ -279,8 +279,6 @@ function _M.render(state, dispatch)
           icons.get("dashboard", "w-6 h-6 text-violet-600 shrink-0"), "Gösterge Paneli"),
         dom.p({ class = "text-xs sm:text-sm text-[var(--fg-muted)] flex flex-wrap items-center gap-2 mt-1" },
           dom.span({}, "pgLua — PostgreSQL Web Editörü"),
-          dom.span({ class = "hidden sm:inline text-[var(--border)]" }, "·"),
-          dom.span({ class = "hidden sm:inline" }, "PAGES=" .. #types.PAGES),
           dom.span({ class = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs" },
             dom.span({ class = "live-dot" }), "Canlı")
         )

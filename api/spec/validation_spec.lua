@@ -1,4 +1,4 @@
--- Validation sema testleri: shared validation'in API'deki kullanimi (pg-editor F15)
+-- Validation şema testleri: shared validation'in API'deki kullanimi (pg-editor F15)
 local v = require("pg_shared.validation")
 
 local function errs(schema, input)
@@ -9,7 +9,7 @@ end
 describe("connection_create", function()
   local S = v.schemas.connection_create
 
-  it("minimal gecerli", function()
+  it("minimal geçerli", function()
     local clean = assert(v.validate(S, { name = "test", host = "localhost", port = 5432, database = "mydb", username = "user" }))
     assert.equal("test", clean.name)
   end)
@@ -26,7 +26,7 @@ describe("connection_create", function()
     assert.is_nil(v.validate(S, { name = "t", host = "localhost", port = 99999, database = "mydb", username = "user" }))
   end)
 
-  it("database: rezerve kelime gecerli (tirnaklanir), bos ad red", function()
+  it("database: rezerve kelime geçerli (tirnaklanir), bos ad red", function()
     assert.is_not_nil(v.validate(S, { name = "t", host = "localhost", port = 5432, database = "select", username = "user" }))
     local _, e = errs(S, { name = "t", host = "localhost", port = 5432, database = "", username = "user" })
     assert.truthy(e.database)
@@ -41,7 +41,7 @@ end)
 describe("query_execute", function()
   local S = v.schemas.query_execute
 
-  it("gecerli", function()
+  it("geçerli", function()
     assert.is_not_nil(v.validate(S, { connection_id = "11111111-2222-4333-8444-555555555555", sql = "SELECT 1" }))
   end)
 
@@ -58,7 +58,7 @@ describe("query_execute", function()
   end)
 end)
 
-describe("user semalari", function()
+describe("user şemalari", function()
   local S = v.schemas.user_create
 
   it("gecersiz email", function()
@@ -79,7 +79,7 @@ describe("user semalari", function()
   end)
 end)
 
-describe("auth semalari", function()
+describe("auth şemalari", function()
   it("login email+password zorunlu", function()
     local _, e = errs(v.schemas.login, {})
     assert.truthy(e.email)
@@ -97,7 +97,7 @@ describe("auth semalari", function()
 end)
 
 describe("rbac", function()
-  it("rbac_matrix gecerli", function()
+  it("rbac_matrix geçerli", function()
     assert.is_not_nil(v.validate(v.schemas.rbac_matrix, { permissions = { { role = "admin", page_key = "dashboard", can_access = true } } }))
     assert.is_nil(v.validate(v.schemas.rbac_matrix, { permissions = {} }))
   end)

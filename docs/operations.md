@@ -158,3 +158,20 @@ Zaman aşımı ve oran sınırı (F30):
 | `RATE_LIMIT_RPS` | `query/execute` ve `query/csv` için IP başına r/s (burst 20); aşımda `429 RATE_LIMITED`, `Retry-After: 1`; `0` kapatır |
 
 Bench (`make bench`, `api/bench/schema_categories.lua`): `/categories` cache hit p95 < 10 ms, `/objects?category=` p95 < 80 ms hedefi.
+
+## 9. Güvenlik Sertleştirme (Faz-31/32) & Test
+
+SQL injection savunması:
+
+- `grep -rn 'where_raw' api/src shared/src` boş (faz-31).
+- `custom_where` test: `curl -s http://localhost:28080/api/v1/connections/<id>/objects/public/users/rows?custom_where=1%3B%20DROP | jq .code` → `BAD_REQUEST`.
+- `sqlmap` manuel: `sqlmap -u "http://localhost:28080/api/v1/connections/<id>/objects/public/users/rows?custom_where=1" --batch --level 2` → hiçbir parametre enjekte edilemez (tüm `custom_where` `BAD_REQUEST`).
+- Yıkıcı sorgu: `curl -X POST /api/v1/query/execute -d '{"connection_id":"...","sql":"DROP TABLE t"}' | jq .code` → `DESTRUCTIVE_REQUIRES_CONFIRM` 409; `{"sql":"DROP TABLE t","confirm":true}` ile retry 200.
+- Editor rol: `curl` ile `editor` JWT ile `DELETE FROM t` → 403 `FORBIDDEN`.
+
+WAF (öneri, opsiyonel):
+```nginx
+# ModSecurity CRS önüne: /api/v1/objects/*/rows?custom_where içinde ; -- /* UNION SELECT blok
+```
+
+CI: `make lint` `where_raw` grep’ini, `make test` `validation_spec` + `query_parser_spec` + `sql_guard_spec`’i koşar.

@@ -1,5 +1,5 @@
 -- 007_query_history_dedupe: codd gibi ayni SQL tekrar calisinca yeni kayit yerine mevcut kayit en uste tasinir.
--- sql_hash = md5(sql); (kullanici, baglanti, veritabani, sql_hash) tekil. Mevcut kopyalardan en yenisi kalir.
+-- sql_hash = md5(sql); (kullanıcı, bağlantı, veritabani, sql_hash) tekil. Mevcut kopyalardan en yenisi kalir.
 return {
   version = 7,
   name = "query_history_dedupe",

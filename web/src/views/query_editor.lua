@@ -1,4 +1,4 @@
--- F18: Sorgu editoru — cok sekmeli CodeMirror, sidebar, calistir, sonuc grid, CSV, gecmis.
+-- F18: Sorgu editoru — cok sekmeli CodeMirror, sidebar, çalıştır, sonuc grid, CSV, gecmis.
 -- Editor metni icin tek kaynak current_sql[tab.id]: state'e 300 ms debounce ile yazilir, render editoru ezmez.
 -- Dis kaynaklar (sidebar, script, gecmis) metni _M.set_sql/_M.append_sql/_M.open_in_new_tab ile degistirir.
 local dom = require("dom")
@@ -158,7 +158,7 @@ local function refresh_history(tab)
   if hdata and hdata.items then app.dispatch({ type = "QUERY_HISTORY_LOADED", items = hdata.items }) end
 end
 
--- codd: bu komutlardan sonra sema (sidebar + autocomplete) yeniden yuklenir
+-- codd: bu komutlardan sonra şema (sidebar + autocomplete) yeniden yuklenir
 local DDL_PATTERN = { "^%s*create", "^%s*alter", "^%s*drop", "^%s*comment", "^%s*grant", "^%s*revoke", "^%s*reindex" }
 function _M.changes_schema(sql)
   for stmt in (sql:lower() .. ";"):gmatch("([^;]*);") do
@@ -175,7 +175,10 @@ local function sql_to_run(tab)
   return sql_of(tab)
 end
 
-local function do_run(tab, sql, row_limit)
+local DESTRUCTIVE_LABEL = { DROP = "DROP", TRUNCATE = "TRUNCATE", DELETE = "WHERE koşulsuz DELETE",
+  ALTER_DROP = "ALTER … DROP" }
+
+local function do_run(tab, sql, row_limit, confirm)
   app.dispatch({ type = "QUERY_TAB_UPDATED", id = tab.id, patch = { sql = sql_of(tab) } })
   app.dispatch({ type = "QUERY_RUN_REQUESTED", id = tab.id })
   editor.highlight_error(editor_handles[tab.id], 0)
@@ -183,15 +186,29 @@ local function do_run(tab, sql, row_limit)
   local run_id = tostring(js.timer.now()) .. "-" .. run_seq
   run_ids[tab.id] = run_id
   app.spawn(function()
-    local data, err = api.post("/query/execute", {
+    local payload = {
       connection_id = tab.connection_id,
       database = tab.database,
       sql = sql,
       row_limit = row_limit or tab.row_limit or DEFAULT_ROW_LIMIT,
       run_id = run_id,
-    })
+    }
+    if confirm then payload.confirm = true end
+    local data, err = api.post("/query/execute", payload)
     run_ids[tab.id] = nil
     if err then
+      if err.code == "DESTRUCTIVE_REQUIRES_CONFIRM" and not confirm then
+        local kind = err.details and err.details.kind or "DROP"
+        local stmt = err.details and err.details.statement or sql:sub(1, 80)
+        local ok = require("components.modal").confirm({ title = "Yıkıcı sorgu", danger = true,
+          confirm_label = "Çalıştır",
+          message = "Sunucu bu sorguyu " .. (DESTRUCTIVE_LABEL[kind] or kind) .. " olarak işaretledi:\n" .. stmt
+            .. "\nÇalıştırılsın mı?" })
+        if ok then do_run(tab, sql, row_limit, true) else
+          app.dispatch({ type = "QUERY_RUN_FAILED", id = tab.id, error = err })
+        end
+        return
+      end
       app.dispatch({ type = "QUERY_RUN_FAILED", id = tab.id, error = err })
       local db_msg = err.details and err.details.db_message
       app.toast("error", db_msg and ("Sorgu hatası: " .. tostring(db_msg)) or protocol.message(err.code))
@@ -206,9 +223,6 @@ local function do_run(tab, sql, row_limit)
   end)
 end
 
-local DESTRUCTIVE_LABEL = { DROP = "DROP", TRUNCATE = "TRUNCATE", DELETE = "WHERE koşulsuz DELETE",
-  ALTER_DROP = "ALTER … DROP" }
-
 -- opts: { sql = çalıştırılacak metin (yoksa seçim/tümü), row_limit = tek seferlik limit }
 -- F27: yıkıcı ifade (DROP/TRUNCATE/WHERE'siz DELETE/ALTER … DROP) onay penceresinden geçer
 local function run_query(tab, opts)
@@ -219,12 +233,12 @@ local function run_query(tab, opts)
   local sql = opts.sql or sql_to_run(tab)
   if not sql:match("%S") then app.toast("error", "SQL boş"); return end
   local danger = sql_guard.destructive_kind(sql)
-  if not danger then return do_run(tab, sql, opts.row_limit) end
+  if not danger then return do_run(tab, sql, opts.row_limit, false) end
   app.spawn(function()
     local ok = require("components.modal").confirm({ title = "Yıkıcı sorgu", danger = true, confirm_label = "Çalıştır",
       message = "Bu sorgu " .. (DESTRUCTIVE_LABEL[danger.kind] or danger.kind) .. " içeriyor:\n" .. danger.statement
         .. "\nÇalıştırılsın mı?" })
-    if ok then do_run(tab, sql, opts.row_limit) end
+    if ok then do_run(tab, sql, opts.row_limit, true) end
   end)
 end
 
@@ -495,7 +509,7 @@ local function tab_menu(ev, t)
 end
 
 -- Render sonrasi: DOM'dan kopan editorleri at (sekme/sayfa degisimi), aktif sekmeye editor ac.
--- ponytail: sekme degisince geri-al gecmisi kaybolur; sekme basina gizli editor tutmak gerekirse eklenir
+-- ponytail: sekme degisince geri-al geçmişi kaybolur; sekme basina gizli editor tutmak gerekirse eklenir
 local function mount_editor(tab, catalog)
   for id, h in pairs(editor_handles) do
     if not editor.attached(h, "editor-" .. id) then editor.destroy(h); editor_handles[id] = nil end

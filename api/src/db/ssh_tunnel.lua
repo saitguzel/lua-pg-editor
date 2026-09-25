@@ -1,8 +1,8 @@
 -- SSH tuneli (codd ssh_tunnel): `ssh -N -L 127.0.0.1:<yerel>:<db_host>:<db_port>` sureci (ngx.pipe).
 -- Kimlik: parola (sshpass) ya da ozel anahtar (0600 gecici dosya, parolasi sshpass ile). Sunucu anahtari:
--- ilk baglantida kullanici parmak izini onaylar (TOFU), sonra StrictHostKeyChecking=yes.
+-- ilk bağlantıda kullanıcı parmak izini onaylar (TOFU), sonra StrictHostKeyChecking=yes.
 -- ponytail: tuneller worker basina tutulur (her worker kendi ssh sureci); cok sayida es zamanli SSH
--- baglantisi gerekirse ayri bir tunel sidecar'ina tasinmali.
+-- bağlantısi gerekirse ayri bir tunel sidecar'ina tasinmali.
 local ngx_pipe = require("ngx.pipe")
 
 local _M = {}
@@ -40,7 +40,7 @@ local function ensure_dir() run({ "mkdir", "-p", "-m", "700", DIR }) end
 
 local function key_of(conn) return tostring(conn.id) .. ":" .. tostring(conn.updated_at or "") end
 
--- ssh-keyscan: sunucunun known_hosts satirlari
+-- ssh-keyscan: sunucunun known_hosts satırlari
 function _M.scan(host, port)
   local out, err = run({ "ssh-keyscan", "-T", "5", "-p", tostring(port or 22), host })
   local lines = {}
@@ -51,7 +51,7 @@ function _M.scan(host, port)
   return table.concat(lines, "\n") .. "\n"
 end
 
--- known_hosts satirlari → { { type, fingerprint } } (ssh-keygen -lf -)
+-- known_hosts satırlari → { { type, fingerprint } } (ssh-keygen -lf -)
 function _M.fingerprints(known_hosts)
   local out = run({ "ssh-keygen", "-lf", "-" }, known_hosts) or ""
   local list = {}
@@ -62,7 +62,7 @@ function _M.fingerprints(known_hosts)
   return list
 end
 
--- ssh komut satiri (test edilebilir, surec baslatmaz). secrets: { password, passphrase }
+-- ssh komut satıri (test edilebilir, surec baslatmaz). secrets: { password, passphrase }
 function _M.command(conn, local_port, files, secrets)
   local args, env = {}, { ENV_PATH }
   local ssh = {

@@ -1,4 +1,4 @@
--- Sema/yapi servis: sahiplik, pool_manager, completion cache, 6 paralel sorgu
+-- Şema/yapı servis: sahiplik, pool_manager, completion cache, 6 paralel sorgu
 local cjson = require("cjson.safe")
 local config = require("config")
 local connection_repo = require("repositories.connection_repo")
@@ -16,7 +16,7 @@ local function get_connection_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
   if not row or row.user_id ~= identity.user_id then
-    return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi")
+    return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı")
   end
   return row
 end
@@ -28,14 +28,14 @@ local function map_target_err(err)
   local sqlstate = type(err) == "table" and err.code or nil
   local msg = type(err) == "table" and (err.message or tostring(err)) or tostring(err)
   if sqlstate == "42P01" or sqlstate == "42P02" or sqlstate == "42703" then
-    return errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadi", { sqlstate = sqlstate, db_message = msg })
+    return errors.new("OBJECT_NOT_FOUND", "Tablo veya view bulunamadı", { sqlstate = sqlstate, db_message = msg })
   elseif sqlstate == "3D000" then
-    return errors.new("DATABASE_NOT_FOUND", "Veritabani bulunamadi", { sqlstate = sqlstate })
+    return errors.new("DATABASE_NOT_FOUND", "Veritabani bulunamadı", { sqlstate = sqlstate })
   elseif sqlstate and sqlstate:sub(1,2)=="42" then
-    return errors.new("QUERY_FAILED", "Sorgu calistirilamadi", { sqlstate = sqlstate, db_message = msg })
+    return errors.new("QUERY_FAILED", "Sorgu çalıştırilamadi", { sqlstate = sqlstate, db_message = msg })
   end
   if type(err) == "table" and err.__app_error then return err end
-  return errors.new("QUERY_FAILED", "Sorgu calistirilamadi", { db_message = msg })
+  return errors.new("QUERY_FAILED", "Sorgu çalıştırilamadi", { db_message = msg })
 end
 
 function _M.list_schemas(identity, connection_id, database)
@@ -60,7 +60,7 @@ local function cache_ttl()
   return cfg and cfg.completion and cfg.completion.cache_ttl or 300
 end
 
--- F25: sema basina kategori sayaclari ([{category,count}] x16), completion_cache'te TTL'li
+-- F25: şema basina kategori sayaclari ([{category,count}] x16), completion_cache'te TTL'li
 function _M.list_categories(identity, connection_id, schema, database)
   local conn_row, err = get_connection_owned(identity, connection_id)
   if not conn_row then return nil, err end
@@ -110,7 +110,7 @@ function _M.list_objects(identity, connection_id, schema, database, opts)
   return out, { total = total, limit = limit, offset = offset, has_more = has_more }
 end
 
--- Yapi: tek baglantida sirali katalog sorgulari (hepsi ms mertebesinde); nesne yoksa kolon sorgusu 42P01 doner
+-- Yapı: tek bağlantıda sirali katalog sorgulari (hepsi ms mertebesinde); nesne yoksa kolon sorgusu 42P01 doner
 function _M.get_structure(identity, connection_id, schema, name, database)
   local conn_row, err = get_connection_owned(identity, connection_id)
   if not conn_row then return nil, err end
@@ -173,7 +173,7 @@ function _M.get_completion(identity, connection_id, database)
 end
 
 -- completion + kategori sayaclarini (categories:<conn>:<db>:*) siler. database yoksa "default" anahtari
--- silinir; diger db'ler TTL ile duser. ponytail: get_keys(0) tum dict'i tarar; anahtar sayisi kucuk (sema basina 1)
+-- silinir; diger db'ler TTL ile duser. ponytail: get_keys(0) tum dict'i tarar; anahtar sayisi kucuk (şema basina 1)
 function _M.invalidate_completion(connection_id, database)
   local dict = ngx.shared.completion_cache
   if not dict then return end

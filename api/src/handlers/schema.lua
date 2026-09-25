@@ -1,4 +1,4 @@
--- Sema/yapi handler'lari: schemas, objects, structure, completion
+-- Şema/yapı handler'lari: schemas, objects, structure, completion
 local validation = require("pg_shared.validation")
 local errors = require("middleware.error_handler")
 local schema_service = require("services.schema_service")
@@ -39,7 +39,7 @@ function _M.list_objects(self)
   return { status = 200, json = { data = list, meta = clean.category and meta or nil } }
 end
 
--- F25: sema basina kategori sayaclari
+-- F25: şema basina kategori sayaclari
 function _M.list_categories(self)
   local id, err = errors.require_uuid_param(self, "id", "CONNECTION_NOT_FOUND")
   if not id then return errors.respond(err) end

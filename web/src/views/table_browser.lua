@@ -1,5 +1,5 @@
--- F19: Tablo tarayici (codd) — sayfali/filtreli/siralanabilir satirlar, hucre duzenleme (NULL dahil),
--- ekle/çoğalt/sil, sag tik menusu, CSV, Delete tusu. Satir işlemleri yalnizca PK'li tablolarda
+-- F19: Tablo tarayıcı (codd) — sayfali/filtreli/siralanabilir satırlar, hucre düzenleme (NULL dahil),
+-- ekle/çoğalt/sil, sag tik menusu, CSV, Delete tusu. Satır işlemleri yalnizca PK'li tablolarda
 -- (sunucu meta.editable + _rid verir); view ve PK'siz tablolar salt okunur.
 local dom = require("dom")
 local app = require("app")
@@ -17,7 +17,7 @@ _M.title = "Tablo Tarayıcı"
 _M.layout = true
 
 local selected = {} -- rid -> true (toplu secim)
-local focused = nil -- satir indeksi (tek secim: çoğalt/sil/Delete)
+local focused = nil -- satır indeksi (tek secim: çoğalt/sil/Delete)
 local form = nil -- { mode = "insert"|"duplicate", values, state = { modes, errors } }
 
 local GROUP_CLASS = {
@@ -103,7 +103,7 @@ end
 
 local function can_edit(meta) return meta.editable == true and app.can("table.edit") end
 
--- --- satir işlemleri ---------------------------------------------------------------
+-- --- satır işlemleri ---------------------------------------------------------------
 local function delete_rows(rids)
   if #rids == 0 then return end
   app.spawn(function()
@@ -163,7 +163,7 @@ local function edit_or_view(tb, r, c)
   end
 end
 
--- sayfadaki satirlari result_grid kopyalama bicimine cevir
+-- sayfadaki satırlari result_grid kopyalama bicimine cevir
 local function as_result(tb)
   local cols, rows = {}, {}
   for j, c in ipairs(tb.columns) do cols[j] = c.name end
@@ -215,7 +215,7 @@ local function row_menu(e, tb)
   require("components.context_menu").open(e, items)
 end
 
--- Delete tusu (klavye kisayolu): odakli satiri sil
+-- Delete tusu (klavye kisayolu): odakli satıri sil
 function _M.delete_focused()
   local tb = app.get_state().table_browser
   local row = focused and tb.rows[focused]

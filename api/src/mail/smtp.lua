@@ -45,14 +45,14 @@ local function human_ttl(ttl)
 end
 
 function _M.render_reset_mail(full_name, link, ttl)
-  local name = full_name or "Kullanici"
+  local name = full_name or "Kullanıcı"
   local validity = human_ttl(ttl or 3600)
-  local subject = "Parola Sifirlama Talebi"
+  local subject = "Parola Sıfırlama Talebi"
   local text = string.format(
-    "Merhaba %s,\n\nParola sifirlama baglantiniz:\n%s\n\nBaglanti %s gecerlidir.\n", name, link, validity
+    "Merhaba %s,\n\nParola sıfırlama bağlantıniz:\n%s\n\nBağlantı %s geçerlidir.\n", name, link, validity
   )
   local html = string.format(
-    "<p>Merhaba %s,</p><p>Parola sifirlama baglantiniz:</p><p><a href=\"%s\">%s</a></p><p>Baglanti %s gecerlidir.</p>",
+    "<p>Merhaba %s,</p><p>Parola sıfırlama bağlantıniz:</p><p><a href=\"%s\">%s</a></p><p>Bağlantı %s geçerlidir.</p>",
     escape_html(name), escape_html(link), escape_html(link), validity
   )
   return { subject = subject, text = text, html = html }

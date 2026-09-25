@@ -1,4 +1,4 @@
--- 002_connections: harici PostgreSQL baglanti tablosu (password_encrypted, ssh alanlari)
+-- 002_connections: harici PostgreSQL bağlantı tablosu (password_encrypted, ssh alanlari)
 return {
   version = 2,
   name = "connections",

@@ -1,6 +1,18 @@
 #!/usr/bin/env sh
 # Staged Lua dosyalarını luacheck ile denetler; hata varsa commit'i durdurur.
+# Faz-31/32: ek güvenlik grep kuralları — ham SQL concat ve where_raw yasak.
 set -eu
+# güvenlik grep (faz-31)
+if grep -rn --include='*.lua' 'where_raw' api/src shared/src 2>/dev/null | grep -q .; then
+  echo "HATA: where_raw kullanimi yasak (faz-31) — parametreli builder kullanin" >&2
+  grep -rn --include='*.lua' 'where_raw' api/src shared/src >&2 || true
+  exit 1
+fi
+if grep -rn --include='*.lua' 'LIMIT " \.\.' api/src 2>/dev/null | grep -q .; then
+  echo "HATA: LIMIT string-concat yasak — parametreli \$n kullanin (faz-31)" >&2
+  grep -rn --include='*.lua' 'LIMIT " \.\.' api/src >&2 || true
+  exit 1
+fi
 files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.lua$' || true)
 [ -z "$files" ] && exit 0
 if ! command -v luacheck >/dev/null 2>&1; then

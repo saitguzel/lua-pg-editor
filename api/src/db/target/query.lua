@@ -1,4 +1,4 @@
--- Hedef DB sorgu calistirma: SQL ayrıştırıcı mantigi (rate limit disinda)
+-- Hedef DB sorgu çalıştırma: SQL ayrıştırıcı mantigi (rate limit disinda)
 local cjson = require("cjson.safe")
 local sql_parser = require("utils.sql_parser")
 local config = require("config")
@@ -27,13 +27,13 @@ end
 map_target_error_code = function(sqlstate, msg)
   -- 42P01 undefined_table -> OBJECT_NOT_FOUND, 42601 syntax -> BAD_REQUEST
   if sqlstate == "42P01" then
-    return { code = "OBJECT_NOT_FOUND", message = "Tablo veya view bulunamadi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
+    return { code = "OBJECT_NOT_FOUND", message = "Tablo veya view bulunamadı", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate == "42P02" or sqlstate == "42703" or sqlstate == "42P02" then
-    return { code = "OBJECT_NOT_FOUND", message = "Obje bulunamadi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
+    return { code = "OBJECT_NOT_FOUND", message = "Obje bulunamadı", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate == "42601" or sqlstate == "42602" then
     return { code = "BAD_REQUEST", message = "SQL sozdizimi hatali", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate == "57014" then
-    -- F30: statement_timeout iptali ile kullanici iptalini (pg_cancel_backend) ayir
+    -- F30: statement_timeout iptali ile kullanıcı iptalini (pg_cancel_backend) ayir
     local message = "Sorgu iptal edildi"
     if msg:find("statement timeout", 1, true) then
       local cfg = config.get()
@@ -44,12 +44,12 @@ map_target_error_code = function(sqlstate, msg)
   elseif sqlstate == "42501" then
     return { code = "FORBIDDEN", message = "Yetki yok", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   elseif sqlstate then
-    return { code = "QUERY_FAILED", message = "Sorgu calistirilamadi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
+    return { code = "QUERY_FAILED", message = "Sorgu çalıştırilamadi", details = { sqlstate = sqlstate, db_message = msg }, __app_error = true }
   end
   if msg and msg:find("timeout", 1, true) then
     return { code = "QUERY_FAILED", message = "Sorgu zaman asimi", details = { db_message = msg }, __app_error = true }
   end
-  return { code = "QUERY_FAILED", message = "Sorgu calistirilamadi", details = { db_message = msg }, __app_error = true }
+  return { code = "QUERY_FAILED", message = "Sorgu çalıştırilamadi", details = { db_message = msg }, __app_error = true }
 end
 
 local function safe_row_limit(limit)
@@ -63,13 +63,13 @@ local function expects_rows(sql)
 end
 
 -- pgmoon sonucunu { columns, column_types, rows(dizi), row_count, truncated } yapar.
--- Satirlar SELECT kolon sirasinda dizi; NULL → cjson.null (JSON'da null, satir kesilmez).
+-- Satırlar SELECT kolon sirasinda dizi; NULL → cjson.null (JSON'da null, satır kesilmez).
 local function shape(res, limit)
   if type(res) ~= "table" then
     return { columns = {}, rows = {}, row_count = 0, truncated = false }
   end
   local info = require("db.pool_manager").result_info(res)
-  -- satir tanimi yoksa (INSERT/UPDATE/DDL) affected_rows gelir
+  -- satır tanimi yoksa (INSERT/UPDATE/DDL) affected_rows gelir
   if not info then
     local n = res.affected_rows or 0
     return { columns = {}, rows = {}, row_count = n, truncated = false, command = "affected", affected = n }
@@ -93,7 +93,7 @@ end
 
 local ROW_STATEMENTS = { select = true, with = true, values = true, table = true }
 
--- Satir donduren ifade: cursor ile yalnizca limit+1 satir cekilir (tum sonuc belleğe alinmaz).
+-- Satır donduren ifade: cursor ile yalnizca limit+1 satır cekilir (tum sonuc belleğe alinmaz).
 -- DECLARE kabul etmezse (SELECT INTO, veri degistiren WITH vb.) ifade dogrudan calisir.
 local CURSOR_PREFIX = "DECLARE _pgl_cur NO SCROLL CURSOR FOR "
 local function exec_limited(pg, stmt, limit)
@@ -109,7 +109,7 @@ local function exec_limited(pg, stmt, limit)
   return shape(res, limit)
 end
 
--- Tek bir ifadeyi calistir, satir limitini uygula (truncated bayragi)
+-- Tek bir ifadeyi çalıştır, satır limitini uygula (truncated bayragi)
 local function exec_one(pg, stmt, limit, use_cursor)
   if use_cursor then
     local kw = sql_parser.strip_leading_sql_comments(stmt):lower():match("^%s*(%a+)")
@@ -122,7 +122,7 @@ local function exec_one(pg, stmt, limit, use_cursor)
   local res, err = pg:query(stmt)
   if not res then return nil, map_target_error(err) end
   local out = shape(res, limit)
-  -- satir dondurmeyen komut: grid mesaji icin komut adi ("INSERT", "CREATE TABLE")
+  -- satır dondurmeyen komut: grid mesaji icin komut adi ("INSERT", "CREATE TABLE")
   if #out.columns == 0 then out.command = _M.command_tag(stmt) end
   return out
 end
@@ -140,7 +140,7 @@ function _M.command_tag(stmt)
 end
 
 -- opts.in_transaction: cagiran zaten islem acti (READ ONLY export) → cursor'un kendi BEGIN/COMMIT'i
--- o islemi erken bitirip sonraki ifadeleri salt-okunur korumasi disinda calistirirdi
+-- o islemi erken bitirip sonraki ifadeleri salt-okunur korumasi disinda çalıştırirdi
 function _M.execute(pg, sql, row_limit, opts)
   if type(sql) ~= "string" or sql:match("^%s*$") then
     return nil, { code = "VALIDATION_FAILED", message = "SQL zorunlu", details = { sql = { "zorunlu alan" } }, __app_error = true }
@@ -151,7 +151,7 @@ function _M.execute(pg, sql, row_limit, opts)
     return nil, { code = "PAYLOAD_TOO_LARGE", message = "Sorgu cok buyuk", __app_error = true }
   end
   local limit = safe_row_limit(row_limit)
-  -- kullanici islem komutu (BEGIN/COMMIT) kullaniyorsa kendi BEGIN'imiz onun islemini bozar: cursor yok
+  -- kullanıcı islem komutu (BEGIN/COMMIT) kullaniyorsa kendi BEGIN'imiz onun islemini bozar: cursor yok
   local use_cursor = not (opts and opts.in_transaction) and not sql_parser.contains_transaction_control(sql)
   -- Coklu ifade: hepsi sirayla calisir, yalnizca sonuncunun sonucu doner (codd davranisi)
   local last
@@ -198,7 +198,7 @@ function _M.copy_to_stdout(pg, sql, delimiter, include_header)
   local delim_map = { [","] = ",", [";"] = ";", ["\t"] = "\t", ["|"] = "|" }
   local d = delim_map[delimiter] or ","
   -- pgmoon COPY streaming desteklemiyor olabilir; biz basit sorgu ile CSV uretiyoruz
-  -- Alternatif: sorguyu calistirip Lua'da CSV'ye cevir
+  -- Alternatif: sorguyu çalıştırip Lua'da CSV'ye cevir
   return nil, "COPY streaming desteklenmiyor, fallback kullanin"
 end
 

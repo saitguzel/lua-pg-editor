@@ -2,7 +2,7 @@
 local v = require("pg_shared.validation")
 
 describe("connection_create schema", function()
-  it("unix socket host gecerli", function()
+  it("unix socket host geçerli", function()
     assert.is_not_nil(v.validate(v.schemas.connection_create, { name = "sock", host = "/var/run/postgresql", port = 5432, database = "mydb", username = "user" }))
   end)
 

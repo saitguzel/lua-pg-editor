@@ -1,4 +1,4 @@
--- Hedef PostgreSQL havuz yöneticisi: her kayitli baglanti icin ayri pgmoon keepalive (LRU)
+-- Hedef PostgreSQL havuz yöneticisi: her kayitli bağlantı icin ayri pgmoon keepalive (LRU)
 -- 00 §2: meta DB ve hedef DB izolasyonu; LRU 32 giris, idle 5 dk.
 local pgmoon = require("pgmoon")
 local config = require("config")
@@ -51,9 +51,9 @@ local DESERIALIZERS = setmetatable({
   end,
 }, { __index = pgmoon.Postgres.type_deserializers })
 
--- Sonuca sirali kolon adlari ve tiplerini ekler (result_info): pgmoon satirlari map dondurur,
--- sira ve NULL kolonlar kaybolur; 0 satirli SELECT'te de kolonlar bilinir.
--- Ayni adli kolonlarda (SELECT 1 a, 2 a) map satirlar degeri ezer: o durumda satirlar kolon indeksiyle
+-- Sonuca sirali kolon adlari ve tiplerini ekler (result_info): pgmoon satırlari map dondurur,
+-- sira ve NULL kolonlar kaybolur; 0 satırli SELECT'te de kolonlar bilinir.
+-- Ayni adli kolonlarda (SELECT 1 a, 2 a) map satırlar degeri ezer: o durumda satırlar kolon indeksiyle
 -- ayrica ayristirilip res.array_rows'a konur (NULL → nil delik).
 local function format_query_result(self, row_desc, data_rows, command_complete)
   local fields = row_desc and self:parse_row_desc(row_desc)
@@ -83,13 +83,13 @@ local function format_query_result(self, row_desc, data_rows, command_complete)
   return res
 end
 
--- Sorgu sonucunun kolon bilgisi: { fields, types, array_rows? } | nil (satir tanimi yok: INSERT/DDL)
+-- Sorgu sonucunun kolon bilgisi: { fields, types, array_rows? } | nil (satır tanimi yok: INSERT/DDL)
 function _M.result_info(res)
   local mt = type(res) == "table" and getmetatable(res)
   return mt and mt.__pg_result or nil
 end
 
--- Havuz anahtari hedefi tam tanimlar: ayni conn.id'nin farkli DB/host/kullanici soketleri karismaz
+-- Havuz anahtari hedefi tam tanimlar: ayni conn.id'nin farkli DB/host/kullanıcı soketleri karismaz
 -- (pgmoon yeniden kullanilan sokette startup paketini atlar → yanlis DB'de sorgu calisirdi)
 local function pool_name(conn, host, port)
   return table.concat({ "target", tostring(conn.id), tostring(host or conn.host), tostring(port or conn.port),
@@ -99,7 +99,7 @@ end
 _M._pool_name = pool_name
 
 -- save_password=false parolalari kalici DB yerine bellekte tutulur (sifreli, TTL): codd'un
--- "her baglantida sor" davranisinin web karsiligi. Suresi dolunca baglanti PASSWORD_REQUIRED doner.
+-- "her bağlantıda sor" davranisinin web karsiligi. Suresi dolunca bağlantı PASSWORD_REQUIRED doner.
 local SECRET_TTL = 12 * 3600
 
 function _M.remember_password(conn_id, plain)
@@ -128,10 +128,10 @@ end
 
 -- conn = { id, host, port, database, username, password_encrypted }
 function _M.acquire(conn)
-  if not conn or not conn.id then return nil, "gecersiz baglanti" end
+  if not conn or not conn.id then return nil, "gecersiz bağlantı" end
   local pools_lru = get_pools()
   -- LRU'da anahtar conn.id
-  -- Her cagri yeni pgmoon baglantisi acar; keepalive ile havuzda tutulur
+  -- Her cagri yeni pgmoon bağlantısi acar; keepalive ile havuzda tutulur
   local cfg = config.get()
   local timeout = cfg and cfg.query and cfg.query.timeout_ms or 30000
   local pool_size = cfg and cfg.target and cfg.target.pool_size or 5
@@ -183,13 +183,13 @@ function _M.acquire(conn)
   if not ok then
     -- parola kaydedilmemis ve bellekte yok: istemci parolayi sorup /unlock ile gonderir
     if not password and tostring(err):lower():find("password", 1, true) then
-      return nil, { code = "PASSWORD_REQUIRED", message = "Bu baglanti icin parola gerekli",
+      return nil, { code = "PASSWORD_REQUIRED", message = "Bu bağlantı icin parola gerekli",
         details = { connection_id = conn.id }, __app_error = true }
     end
-    ngx.log(ngx.WARN, "hedef baglanti kurulamadi (", tostring(conn.id), " ", tostring(host), ":", tostring(port), "): ", tostring(err))
-    return nil, { code = "CONNECTION_FAILED", message = "Baglanti kurulamadi", details = { db_message = tostring(err) }, __app_error = true }
+    ngx.log(ngx.WARN, "hedef bağlantı kurulamadı (", tostring(conn.id), " ", tostring(host), ":", tostring(port), "): ", tostring(err))
+    return nil, { code = "CONNECTION_FAILED", message = "Bağlantı kurulamadı", details = { db_message = tostring(err) }, __app_error = true }
   end
-  -- F30: oturum ayari; keepalive'dan donen socket'te zaten set, yalnizca yeni acilan baglantida calisir
+  -- F30: oturum ayari; keepalive'dan donen socket'te zaten set, yalnizca yeni acilan bağlantıda calisir
   if pg.sock and pg.sock.getreusedtimes and pg.sock:getreusedtimes() == 0 then
     local st_ms = cfg and cfg.query and cfg.query.statement_timeout_ms or 30000
     local st_ok, st_err = pg:query("SET statement_timeout = " .. tostring(math.floor(st_ms)))
@@ -197,13 +197,13 @@ function _M.acquire(conn)
       ngx.log(ngx.WARN, "statement_timeout ayarlanamadi (", tostring(conn.id), "): ", tostring(st_err))
     end
   end
-  -- LRU'ya dokun (varsa guncelle, yoksa ekle)
+  -- LRU'ya dokun (varsa güncelle, yoksa ekle)
   pools_lru:set(conn.id, { pg = pg, touched = ngx.now(), conn_id = conn.id })
   -- stash icin pg'yi sar
   return pg
 end
 
--- Servislerin ortak girisi: istege bagli DB override ile baglanti satirindan pg al → pg, conn_id
+-- Servislerin ortak girisi: istege bagli DB override ile bağlantı satırindan pg al → pg, conn_id
 function _M.acquire_for(conn_row, database)
   local conn = conn_row
   if database and database ~= "" and database ~= conn_row.database then
@@ -214,7 +214,7 @@ function _M.acquire_for(conn_row, database)
   local pg, err = _M.acquire(conn)
   if not pg then
     if type(err) == "table" and err.__app_error then return nil, err end
-    return nil, { code = "CONNECTION_FAILED", message = "Baglanti kurulamadi",
+    return nil, { code = "CONNECTION_FAILED", message = "Bağlantı kurulamadı",
       details = { db_message = tostring(err and err.message or err) }, __app_error = true }
   end
   return pg, conn.id

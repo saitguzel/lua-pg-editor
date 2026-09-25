@@ -1,4 +1,4 @@
--- CSV export: COPY streaming benzeri, Lua'da sorgu calistirip CSV'ye cevirir
+-- CSV export: COPY streaming benzeri, Lua'da sorgu çalıştırip CSV'ye cevirir
 local cjson = require("cjson.safe")
 local sql_parser = require("utils.sql_parser")
 
@@ -7,7 +7,7 @@ local _M = {}
 local function csv_escape(v, delimiter)
   if v == nil or v == cjson.null or v == ngx.null then return "" end
   local s = type(v) == "table" and cjson.encode(v) or tostring(v)
-  -- delimiter veya cift tirnak veya satir kirilmasi varsa tirnakla
+  -- delimiter veya cift tirnak veya satır kirilmasi varsa tirnakla
   if s:find('["\r\n]') or s:find(delimiter, 1, true) then
     s = '"' .. s:gsub('"', '""') .. '"'
   end
@@ -58,7 +58,7 @@ function _M.render(cols, rows, opts)
   return to_csv(cols, rows, opts.delimiter or ",", opts.include_header)
 end
 
--- Sorguyu salt-okunur islemde calistirip CSV uret (header dahil)
+-- Sorguyu salt-okunur islemde çalıştırip CSV uret (header dahil)
 function _M.export_query(pg, sql, opts)
   opts = opts or {}
   local delimiter = opts.delimiter or ","
@@ -76,7 +76,7 @@ function _M.export_query(pg, sql, opts)
     { truncated = res.truncated, rows = #(res.rows or {}), columns = cols }
 end
 
--- Tabloyu filtre/siralama ile disari aktar; WHERE, tarayicinin dogrulanmis uretecinden gelir
+-- Tabloyu filtre/siralama ile disari aktar; WHERE, tarayıcınin dogrulanmis uretecinden gelir
 function _M.export_table(pg, schema, table_name, opts)
   opts = opts or {}
   local delimiter = opts.delimiter or ","

@@ -1,4 +1,4 @@
--- RBAC matris yardimcilari: DB satirlari <-> matris donusumu ve diff
+-- RBAC matris yardimcilari: DB satırlari <-> matris donusumu ve diff
 local types = require("pg_shared.types")
 
 local _M = {}

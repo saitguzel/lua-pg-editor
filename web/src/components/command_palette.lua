@@ -96,7 +96,7 @@ function palette.open()
   open = true
   query = ""
   selected = 1
-  -- bağlantı/tablo listesini tazelemek icin api cagrisi yapilabilir ama hizli olmasi icin mevcut state kullanilir
+  -- bağlantı/tablo listesini tazelemek icin api cagrisi yapılabilir ama hizli olmasi icin mevcut state kullanilir
   app.dispatch({ type = "COMMAND_PALETTE_OPENED" })
   app.schedule_render()
   js.timer.after(30, function() js.dom.focusFirst("[data-command]") end)
@@ -174,7 +174,7 @@ function palette.render(state)
 
     items[#items + 1] = dom.div({ class = "text-xs font-semibold text-[var(--fg-muted)] px-2 py-1 mt-2" }, "Tablolar (" .. #tables .. ")")
     if #tables == 0 then
-      items[#items + 1] = dom.div({ class = "px-3 py-2 text-sm text-[var(--fg-muted)]" }, "Eslesen tablo yok (once sema yukleyin)")
+      items[#items + 1] = dom.div({ class = "px-3 py-2 text-sm text-[var(--fg-muted)]" }, "Eslesen tablo yok (once şema yukleyin)")
     else
       for _, o in ipairs(tables) do
         local name = o.name or o.table_name or ""

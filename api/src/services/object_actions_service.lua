@@ -10,7 +10,7 @@ local _M = {}
 local function get_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
-  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi") end
+  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı") end
   return row
 end
 
@@ -20,7 +20,7 @@ local function map_err(err)
   local code = type(err)=="table" and err.code or nil
   local msg = type(err)=="table" and (err.message or tostring(err)) or tostring(err)
   if code=="42P07" then return errors.new("CONFLICT", "Ayni isimde obje zaten var", { sqlstate=code }) end
-  if code=="42P01" or code=="42883" then return errors.new("OBJECT_NOT_FOUND", "Obje bulunamadi", { sqlstate=code }) end
+  if code=="42P01" or code=="42883" then return errors.new("OBJECT_NOT_FOUND", "Obje bulunamadı", { sqlstate=code }) end
   if code=="42723" or code=="42710" then return errors.new("CONFLICT", "Ayni isimde obje zaten var", { sqlstate=code }) end
   if code=="42501" then return errors.new("FORBIDDEN", "Yetki yok", { sqlstate=code }) end
   if code=="2BP01" then return errors.new("CONFLICT", "Bagimli obje var, CASCADE gerekli", { sqlstate=code }) end
@@ -34,7 +34,7 @@ local function invalidate(connection_id, database)
   svc.invalidate_completion(connection_id, database)
 end
 
--- Baglanti al, nesne turunu ogren, fn(pg, kind) calistir; havuz her durumda birakilir
+-- Bağlantı al, nesne turunu ogren, fn(pg, kind) çalıştır; havuz her durumda birakilir
 local function with_object(identity, connection_id, database, schema, name, fn)
   local conn_row, err = get_owned(identity, connection_id)
   if not conn_row then return nil, err end

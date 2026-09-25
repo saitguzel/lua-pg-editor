@@ -83,8 +83,8 @@ local function group_of(page_key)
   return meta and meta.group or "diger"
 end
 
-local GROUP_LABEL = { genel = "Genel", connections = "Baglantilar", query = "Sorgu",
-  browse = "Tarayici", admin = "Admin" }
+local GROUP_LABEL = { genel = "Genel", connections = "Bağlantılar", query = "Sorgu",
+  browse = "Tarayıcı", admin = "Admin", diger = "Diğer" }
 local GROUP_ORDER = { "genel", "connections", "query", "browse", "admin" }
 
 function _M.render(state, dispatch)
@@ -115,7 +115,7 @@ function _M.render(state, dispatch)
     .. st.cache_ttl .. " sn icinde yansin.") or
     "Degisiklikler aninda kaydedilir. Onbellek nedeniyle diger oturumlara kisa sure icinde yansir."
 
-  -- gruplar: sayfalar gruplara ayrilir (satirlar gruplu gosterilir)
+  -- gruplar: sayfalar gruplara ayrilir (satırlar gruplu gosterilir)
   local grouped = {}
   for _, page in ipairs(types.PAGES) do
     local g = group_of(page)
@@ -123,7 +123,7 @@ function _M.render(state, dispatch)
     grouped[g][#grouped[g] + 1] = page
   end
 
-  -- sutunlar: roller (ustte), satirlar: sayfalar (solda) — istenen yerlesim
+  -- sutunlar: roller (ustte), satırlar: sayfalar (solda) — istenen yerlesim
   local roles = {}
   for role in pairs(matrix) do roles[#roles + 1] = role end
   if #roles == 0 then for _, r in ipairs(types.ROLES) do roles[#roles + 1] = r end end
@@ -147,7 +147,7 @@ function _M.render(state, dispatch)
   end
 
   local rows = {}
-  -- gruplu satirlar: her grup icin once grup basligi, sonra sayfa satirlari
+  -- gruplu satırlar: her grup icin once grup basligi, sonra sayfa satırlari
   for _, g in ipairs(GROUP_ORDER) do
     local pages_in_group = grouped[g] or {}
     if #pages_in_group > 0 then

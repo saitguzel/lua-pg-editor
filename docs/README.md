@@ -13,26 +13,26 @@
 | Faz | Dosya | Ad | Efor | Özet |
 |---|---|---|---|---|
 | 00 | [00-genel-bakis.md](fazlar/00-genel-bakis.md) | Genel Bakış & SSOT | — | Mimari, sözleşmeler, tüm sözlük |
-| 00 | [faz-00-monorepo-altyapi.md](fazlar/faz-00-monorepo-altyapi.md) | Monorepo Altyapı | S | docker-compose, Makefile, lint, git hooks |
+| 00 | [faz-00-monorepo-altyapı.md](fazlar/faz-00-monorepo-altyapı.md) | Monorepo Altyapı | S | docker-compose, Makefile, lint, git hooks |
 | 01 | [faz-01-shared-kutuphane.md](fazlar/faz-01-shared-kutuphane.md) | Shared Kütüphane | M | types, validation, protocol |
 | 02 | [faz-02-veritabani-migration.md](fazlar/faz-02-veritabani-migration.md) | Veritabanı & Migration | M | users, connections, query_history, audit, rbac |
 | 03 | [faz-03-backend-core.md](fazlar/faz-03-backend-core.md) | Backend Core | L | config, nginx, Lapis, query, router, error |
 | 04 | [faz-04-security.md](fazlar/faz-04-security.md) | Security | M | jwt, argon2, random, AES-GCM |
 | 05 | [faz-05-auth-endpointleri.md](fazlar/faz-05-auth-endpointleri.md) | Auth Endpointleri | L | login/refresh/logout/me/forgot/reset |
-| 06 | [faz-06-baglantilar.md](fazlar/faz-06-baglantilar.md) | Bağlantı Yönetimi | L | CRUD + test + pool_manager + şifreleme |
-| 07 | [faz-07-sema-yapi.md](fazlar/faz-07-sema-yapi.md) | Şema & Yapı | L | schemas, objects, structure (6 sorgu) |
+| 06 | [faz-06-bağlantılar.md](fazlar/faz-06-bağlantılar.md) | Bağlantı Yönetimi | L | CRUD + test + pool_manager + şifreleme |
+| 07 | [faz-07-şema-yapı.md](fazlar/faz-07-şema-yapı.md) | Şema & Yapı | L | schemas, objects, structure (6 sorgu) |
 | 08 | [faz-08-sorgu-motoru-gecmis.md](fazlar/faz-08-sorgu-motoru-gecmis.md) | Sorgu Motoru & Geçmiş | L | execute, history, completion, limit |
-| 09 | [faz-09-tablo-tarayici.md](fazlar/faz-09-tablo-tarayici.md) | Tablo Tarayıcı | L | pagination, filter, insert/duplicate/delete, edit |
+| 09 | [faz-09-tablo-tarayıcı.md](fazlar/faz-09-tablo-tarayıcı.md) | Tablo Tarayıcı | L | pagination, filter, insert/duplicate/delete, edit |
 | 10 | [faz-10-obje-eylemleri-script-export.md](fazlar/faz-10-obje-eylemleri-script-export.md) | Obje & Script & CSV | M | rename/truncate/drop, DDL script, CSV export |
-| 11 | [faz-11-kullanici-rbac.md](fazlar/faz-11-kullanici-rbac.md) | Kullanıcı & RBAC | L | user CRUD, matrix |
+| 11 | [faz-11-kullanıcı-rbac.md](fazlar/faz-11-kullanıcı-rbac.md) | Kullanıcı & RBAC | L | user CRUD, matrix |
 | 12 | [faz-12-audit-middleware.md](fazlar/faz-12-audit-middleware.md) | Audit & Middleware | M | audit_context, record, export |
 | 13 | [faz-13-swagger-openapi.md](fazlar/faz-13-swagger-openapi.md) | Swagger/OpenAPI 3.1 | M | spec, redocly |
 | 14 | [faz-14-scheduled-jobs.md](fazlar/faz-14-scheduled-jobs.md) | Scheduled Jobs | S | audit/history cleanup |
 | 15 | [faz-15-backend-test-load-test.md](fazlar/faz-15-backend-test-load-test.md) | Backend Test & Bench | L | busted + wrk |
 | 16 | [faz-16-frontend-iskelet.md](fazlar/faz-16-frontend-iskelet.md) | Frontend İskelet | M | Wasmoon, glue, bundling |
 | 17 | [faz-17-frontend-core.md](fazlar/faz-17-frontend-core.md) | Frontend Core | L | store, dom, fetch, router, editor |
-| 18 | [faz-18-frontend-views-editor-baglantilar.md](fazlar/faz-18-frontend-views-editor-baglantilar.md) | Views I (Bağlantı & Editör) | L | login, connections, query editor |
-| 19 | [faz-19-frontend-views-tarayici-yapi.md](fazlar/faz-19-frontend-views-tarayici-yapi.md) | Views II (Tarayıcı & Yapı) | L | table browser, structure |
+| 18 | [faz-18-frontend-views-editor-bağlantılar.md](fazlar/faz-18-frontend-views-editor-bağlantılar.md) | Views I (Bağlantı & Editör) | L | login, connections, query editor |
+| 19 | [faz-19-frontend-views-tarayıcı-yapı.md](fazlar/faz-19-frontend-views-tarayıcı-yapı.md) | Views II (Tarayıcı & Yapı) | L | table browser, structure |
 | 20 | [faz-20-frontend-views-admin.md](fazlar/faz-20-frontend-views-admin.md) | Views III (Admin) | M | users, rbac, audit, settings |
 | 21 | [faz-21-frontend-ux-polish.md](fazlar/faz-21-frontend-ux-polish.md) | UX Polish | M | tema, klavye, a11y |
 | 22 | [faz-22-frontend-test-wasm-opt.md](fazlar/faz-22-frontend-test-wasm-opt.md) | Frontend Test & WASM Opt | M | busted, playwright, wasm opt |
@@ -44,6 +44,9 @@
 | 28 | [faz-28-sonuc-paneli-ve-disa-aktarma.md](fazlar/faz-28-sonuc-paneli-ve-disa-aktarma.md) | Sonuç Paneli & Dışa Aktarma | M | export diyaloğu düzeltmesi, grid sayfalama/virtual scroll, DML mesajı |
 | 29 | [faz-29-ipuclari-kesfedilebilirlik.md](fazlar/faz-29-ipuclari-kesfedilebilirlik.md) | İpuçları & Keşfedilebilirlik | S | yardım butonu, gizli özellikler, ipucu kartı, palet komutları |
 | 30 | [faz-30-performans-zaman-asimi-guvenlik.md](fazlar/faz-30-performans-zaman-asimi-guvenlik.md) | Performans, Zaman Aşımı & Güvenlik | M | statement_timeout, nginx limit_req, read-only rol, bench |
+| 31 | [faz-31-sql-injection-sertlestirme.md](fazlar/faz-31-sql-injection-sertlestirme.md) | SQL Injection Sertleştirme | M | safe_sql, validate_expression, where_raw kaldırma, LIMIT parametreleştirme |
+| 32 | [faz-32-backend-yikici-sorgu-ve-rol-korumasi.md](fazlar/faz-32-backend-yikici-sorgu-ve-rol-korumasi.md) | Backend Yıkıcı Sorgu & Rol Koruması | M | destructive guard, editor read-only, confirm akışı |
+| 33 | [faz-33-savunma-derinligi-ve-ci.md](fazlar/faz-33-savunma-derinligi-ve-ci.md) | Savunma Derinliği & CI | S | grep kuralları, güvenlik testleri, WAF/sqlmap runbook |
 
 ## Diğer Dokümanlar
 

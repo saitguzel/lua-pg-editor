@@ -171,14 +171,14 @@ local function cross_validate(c)
   if c.query and c.query.timeout_ms and c.query.statement_timeout_ms
     and c.query.timeout_ms < c.query.statement_timeout_ms then
     c.warnings[#c.warnings + 1] = "QUERY_TIMEOUT_MS, QUERY_STATEMENT_TIMEOUT_MS'den kucuk: "
-      .. "zaman asimi hatasi yerine baglanti kopmasi gorulur"
+      .. "zaman asimi hatasi yerine bağlantı kopmasi gorulur"
     if ngx and ngx.log then ngx.log(ngx.WARN, c.warnings[#c.warnings]) end
   end
   -- ENCRYPTION_KEY base64 32 byte ise decode dene (ngx.decode_base64 varsa)
   if c.encryption_key and ngx and ngx.decode_base64 then
     local decoded = ngx.decode_base64(c.encryption_key)
     if decoded and #decoded ~= 32 then
-      -- base64 degilse de kabul (ham 32+ karakter); sadece uzunluk kontrolu yapildi
+      -- base64 degilse de kabul (ham 32+ karakter); sadece uzunluk kontrolu yapıldi
     end
   end
   return errs

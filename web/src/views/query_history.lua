@@ -1,4 +1,4 @@
--- F18: Sorgu gecmisi (codd) — bağlantı + veritabani basina, zaman damgasi, SQL onizleme, Uygula (aktif
+-- F18: Sorgu geçmişi (codd) — bağlantı + veritabani basina, zaman damgasi, SQL onizleme, Uygula (aktif
 -- sekmenin metnini degistirir), Yeni sekmede ac, Kopyala, Temizle. Ayni SQL tekrar calisinca en uste tasinir.
 local dom = require("dom")
 local app = require("app")

@@ -1,4 +1,4 @@
--- Kullanici modeli: DB satiri -> Lua tablosu, public serilestirme
+-- Kullanıcı modeli: DB satıri -> Lua tablosu, public serilestirme
 -- password_hash hicbir public ciktiya girmez.
 local cjson = require("cjson.safe")
 local audit = require("models.audit")

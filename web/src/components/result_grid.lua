@@ -1,6 +1,6 @@
 -- F18: Sorgu sonuc tablosu — tipe gore renkli hucreler, NULL rozeti, hucre goruntuleyici (cift tik),
--- sag tik kopyalama menusu (hucre/satir/kolon/tumu TSV), satir limiti ve "N+ satir" isareti.
--- Olaylar tbody'de tek dinleyiciyle (data-cell="satir:kolon") dagitilir: satir basina closure yok.
+-- sag tik kopyalama menusu (hucre/satır/kolon/tumu TSV), satır limiti ve "N+ satır" isareti.
+-- Olaylar tbody'de tek dinleyiciyle (data-cell="satır:kolon") dagitilir: satır basina closure yok.
 local dom = require("dom")
 local json = require("json")
 
@@ -33,7 +33,7 @@ local function cell_text(v)
 end
 result_grid.cell_text = cell_text
 
--- TSV hucresi: NULL bos, sekme/satir sonu bosluga
+-- TSV hucresi: NULL bos, sekme/satır sonu bosluga
 local function tsv(v)
   return ((cell_text(v) or ""):gsub("[\t\r\n]", " "))
 end
@@ -166,7 +166,7 @@ function result_grid.render(result, opts)
   local row_count = result.row_count or #rows
   local duration = result.duration_ms
 
-  -- satir tanimi olmayan komut (INSERT/UPDATE/DDL): komut + etkilenen satir mesaji
+  -- satır tanimi olmayan komut (INSERT/UPDATE/DDL): komut + etkilenen satır mesaji
   if #columns == 0 then
     return dom.div({ class = "p-4 text-sm text-[var(--fg-muted)] flex items-center gap-2", role = "status" },
       require("icons").get("check", "w-4 h-4 text-[var(--success,#16a34a)]"),

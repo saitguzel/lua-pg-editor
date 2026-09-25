@@ -1,4 +1,4 @@
--- TableStructure DTO: 6 bolumlu yapi incelemesi
+-- TableStructure DTO: 6 bolumlu yapı incelemesi
 local cjson = require("cjson.safe")
 
 local _M = {}
@@ -7,7 +7,7 @@ local types = require("pg_shared.types")
 local function present(v) return v ~= nil and v ~= cjson.null and v ~= "" end
 local function truthy(v) return v == true or v == "YES" or v == "t" end
 
--- repo satiri (target_schema_repo.list_columns) → kolon DTO'su
+-- repo satıri (target_schema_repo.list_columns) → kolon DTO'su
 local function normalize_column(row)
   local udt = row.udt_name or row.type_name or row.data_type
   local enum_values = type(row.enum_values) == "table" and row.enum_values or nil
@@ -77,7 +77,7 @@ local function normalize_policy(row)
     check_expr = present(row.check_expr) and row.check_expr or nil }
 end
 
--- cjson.null alanlari nil'e cevir (detail satiri dogrudan repo'dan gelir)
+-- cjson.null alanlari nil'e cevir (detail satıri dogrudan repo'dan gelir)
 local function strip_null(t)
   if type(t) ~= "table" then return t end
   local out = {}

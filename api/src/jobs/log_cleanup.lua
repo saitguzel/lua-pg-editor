@@ -1,4 +1,4 @@
--- Log temizleme isi: audit_logs eski kayitlari batch sil (pg-editor F14)
+-- Log temizleme isi: audit_logs eski kayıtları batch sil (pg-editor F14)
 -- Advisory lock + worker 0 + gunluk saat kontrolu
 local config = require("config")
 local query = require("db.query")

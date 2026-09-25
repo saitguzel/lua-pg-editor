@@ -49,7 +49,7 @@ function _M.history_delete(self)
   -- body'den de alabilir
   local clean, v = validation.validate(validation.schemas.query_history_query, merged)
   if not clean then return errors.respond(errors.validation(v)) end
-  -- silme her zaman tek baglanti (+ istege bagli DB) kapsaminda
+  -- silme her zaman tek bağlantı (+ istege bagli DB) kapsaminda
   if not clean.connection_id then return errors.respond(errors.validation({ connection_id = { "zorunlu alan" } })) end
   local res, serr = query_service.delete_history(ngx.ctx.identity, clean)
   if not res then return errors.respond(serr) end

@@ -1,4 +1,4 @@
--- F19: Sayfalama (codd) — ilk/onceki/sonraki/son, sayfa boyutu 50/100/250/500, "{ilk}-{son} / toplam satir".
+-- F19: Sayfalama (codd) — ilk/onceki/sonraki/son, sayfa boyutu 50/100/250/500, "{ilk}-{son} / toplam satır".
 local dom = require("dom")
 local types = require("pg_shared.types")
 local icons = require("icons")

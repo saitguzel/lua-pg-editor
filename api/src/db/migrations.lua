@@ -29,7 +29,7 @@ local function load_all(dir)
       local ok, mod = pcall(chunk)
       if not ok then
         fh:close()
-        return nil, "migration calistirilamadi " .. fname .. ": " .. tostring(mod)
+        return nil, "migration çalıştırilamadi " .. fname .. ": " .. tostring(mod)
       end
       if type(mod.version) ~= "number" or type(mod.name) ~= "string" then
         fh:close()
@@ -269,7 +269,7 @@ function _M.seed(pg, seeds_dir, opts)
   return true
 end
 
--- CLI giris: resty ile calistirilirsa
+-- CLI giris: resty ile çalıştırilirsa
 if arg and arg[0] and arg[0]:match("migrations%.lua$") then
   local cmd = arg[1]
   if not cmd then
@@ -298,7 +298,7 @@ if arg and arg[0] and arg[0]:match("migrations%.lua$") then
   })
   local pg, err = pool.acquire()
   if not pg then
-    io.stderr:write("DB baglanti hatasi: " .. tostring(err) .. "\n")
+    io.stderr:write("DB bağlantı hatasi: " .. tostring(err) .. "\n")
     os.exit(1)
   end
   if cmd == "up" then

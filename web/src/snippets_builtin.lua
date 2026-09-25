@@ -20,26 +20,26 @@ _M.items = {
   { id = "b:tx", name = "Transaction bloğu", prefix = "tx", category = "Sorgu",
     body = "BEGIN;\n\n${komutlar}\n\nCOMMIT;" },
   { id = "b:create_table", name = "CREATE TABLE", prefix = "ctab", category = "DDL",
-    body = "CREATE TABLE ${sema}.${tablo} (\n    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n"
+    body = "CREATE TABLE ${şema}.${tablo} (\n    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n"
       .. "    ${kolon} text NOT NULL,\n    created_at timestamptz NOT NULL DEFAULT now()\n);" },
   { id = "b:create_index", name = "CREATE INDEX", prefix = "cidx", category = "DDL",
     body = "CREATE INDEX CONCURRENTLY IF NOT EXISTS ${index_adi}\n    ON ${tablo} (${kolon});" },
   { id = "b:create_view", name = "CREATE VIEW", prefix = "cview", category = "DDL",
-    body = "CREATE OR REPLACE VIEW ${sema}.${view_adi} AS\nSELECT ${kolonlar}\nFROM ${tablo};" },
+    body = "CREATE OR REPLACE VIEW ${şema}.${view_adi} AS\nSELECT ${kolonlar}\nFROM ${tablo};" },
   { id = "b:create_function", name = "CREATE FUNCTION", prefix = "cfn", category = "Fonksiyon",
-    body = "CREATE OR REPLACE FUNCTION ${sema}.${fonksiyon_adi}(p_id integer)\nRETURNS TABLE (id integer, ad text)\n"
+    body = "CREATE OR REPLACE FUNCTION ${şema}.${fonksiyon_adi}(p_id integer)\nRETURNS TABLE (id integer, ad text)\n"
       .. "LANGUAGE plpgsql\nSTABLE\nAS $$\nBEGIN\n    RETURN QUERY\n    SELECT t.id, t.ad\n    FROM ${tablo} t\n"
       .. "    WHERE t.id = p_id;\nEND;\n$$;" },
   { id = "b:create_procedure", name = "CREATE PROCEDURE", prefix = "cproc", category = "Fonksiyon",
-    body = "CREATE OR REPLACE PROCEDURE ${sema}.${prosedur_adi}(p_id integer)\nLANGUAGE plpgsql\nAS $$\nBEGIN\n"
+    body = "CREATE OR REPLACE PROCEDURE ${şema}.${prosedur_adi}(p_id integer)\nLANGUAGE plpgsql\nAS $$\nBEGIN\n"
       .. "    UPDATE ${tablo} SET ${kolon} = ${deger} WHERE id = p_id;\n"
-      .. "    -- COMMIT; (prosedürde transaction kontrolü mümkün)\nEND;\n$$;\n\n-- CALL ${sema}.${prosedur_adi}(1);" },
+      .. "    -- COMMIT; (prosedürde transaction kontrolü mümkün)\nEND;\n$$;\n\n-- CALL ${şema}.${prosedur_adi}(1);" },
   { id = "b:create_trigger", name = "CREATE TRIGGER (+ fonksiyon)", prefix = "ctrg", category = "Fonksiyon",
-    body = "CREATE OR REPLACE FUNCTION ${sema}.${trigger_fonksiyonu}()\nRETURNS trigger\nLANGUAGE plpgsql\n"
+    body = "CREATE OR REPLACE FUNCTION ${şema}.${trigger_fonksiyonu}()\nRETURNS trigger\nLANGUAGE plpgsql\n"
       .. "AS $$\nBEGIN\n"
       .. "    NEW.updated_at := now();\n    RETURN NEW;\nEND;\n$$;\n\nCREATE TRIGGER ${trigger_adi}\n"
-      .. "    BEFORE UPDATE ON ${sema}.${tablo}\n    FOR EACH ROW\n"
-      .. "    EXECUTE FUNCTION ${sema}.${trigger_fonksiyonu}();" },
+      .. "    BEFORE UPDATE ON ${şema}.${tablo}\n    FOR EACH ROW\n"
+      .. "    EXECUTE FUNCTION ${şema}.${trigger_fonksiyonu}();" },
 }
 
 -- ${ad} → ad (düz metin eklemede)
@@ -55,7 +55,7 @@ function _M.create_template(kind, schema)
   for _, it in ipairs(_M.items) do
     if it.id == CREATE_FOR[kind] then
       local quoted = schema:match("^[a-z_][a-z0-9_]*$") and schema or ('"' .. schema:gsub('"', '""') .. '"')
-      return _M.plain((it.body:gsub("%${sema}", (quoted:gsub("%%", "%%%%")))))
+      return _M.plain((it.body:gsub("%${şema}", (quoted:gsub("%%", "%%%%")))))
     end
   end
 end

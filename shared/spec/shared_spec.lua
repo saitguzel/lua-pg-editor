@@ -63,7 +63,7 @@ describe("protocol", function()
     end
   end)
   it("CODE_LIST 33 ve tekrarsız", function()
-    assert.equal(33, #protocol.CODE_LIST)
+    assert.equal(34, #protocol.CODE_LIST)
     local seen = {}
     for _, c in ipairs(protocol.CODE_LIST) do
       assert.is_nil(seen[c], "duplicate " .. c)

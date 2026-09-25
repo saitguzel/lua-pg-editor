@@ -10,7 +10,7 @@ local _M = {}
 local function get_owned(identity, connection_id)
   local row, err = connection_repo.find_by_id(connection_id)
   if err then return nil, err end
-  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Baglanti bulunamadi") end
+  if not row or row.user_id ~= identity.user_id then return nil, errors.new("CONNECTION_NOT_FOUND", "Bağlantı bulunamadı") end
   return row
 end
 
@@ -29,17 +29,17 @@ function _M.generate(identity, connection_id, schema, name, kind, database)
   if not pg then return nil, cid end
   local ok, sql, serr = pcall(function()
     local repo = require("repositories.target_schema_repo")
-    -- F25: iliski degil (sequence de pg_attribute satiri tasir, o yuzden once relkind bakilir) →
+    -- F25: iliski degil (sequence de pg_attribute satıri tasir, o yuzden once relkind bakilir) →
     -- sequence/type/domain/extension CREATE (saf uretici + detay sorgusu)
     if kind == "create" and not repo.object_kind(pg, schema, name) then
       local other = repo.other_object_kind(pg, schema, name)
-      if not other then return nil, "bulunamadi" end
+      if not other then return nil, "bulunamadı" end
       local detail, derr = repo.object_detail(pg, other, schema, name)
       if derr then return nil, derr end
       return target_script.create_other_script(other, schema, name, detail)
     end
     local meta = require("services.table_browser_service").describe(pg, schema, name)
-    if not meta then return nil, "bulunamadi" end
+    if not meta then return nil, "bulunamadı" end
     if kind == "create" then return target_script.create_script(pg, schema, name, meta.kind, meta.columns) end
     if kind == "drop" then return target_script.drop_script(schema, name, meta.kind) end
     if kind == "truncate" then return target_script.truncate_script(schema, name) end
@@ -48,8 +48,8 @@ function _M.generate(identity, connection_id, schema, name, kind, database)
   pool_manager.release(cid, pg, not ok)
   if not ok then error(sql) end
   if not sql then
-    if serr == "bulunamadi" then return nil, errors.new("OBJECT_NOT_FOUND", "Obje bulunamadi") end
-    return nil, errors.new("QUERY_FAILED", "Script olusturulamadi", { db_message = tostring(serr and serr.message or serr) })
+    if serr == "bulunamadı" then return nil, errors.new("OBJECT_NOT_FOUND", "Obje bulunamadı") end
+    return nil, errors.new("QUERY_FAILED", "Script oluşturulamadi", { db_message = tostring(serr and serr.message or serr) })
   end
   audit_service.record("script.generate", { entity_type = "table", entity_id = schema .. "." .. name, new_value = { kind = kind } })
   return sql

@@ -1,4 +1,4 @@
--- Kullanici servis: CRUD is kurallari, self/last-admin korumalari (pg-editor, F11)
+-- Kullanıcı servis: CRUD is kurallari, self/last-admin korumalari (pg-editor, F11)
 local user_repo = require("repositories.user_repo")
 local user_model = require("models.user")
 local password = require("security.password")
@@ -30,7 +30,7 @@ end
 function _M.get(_, id)
   local row, err = user_repo.find_by_id(id)
   if err then return nil, err end
-  if not row then return nil, errors.new("USER_NOT_FOUND", "Kullanici bulunamadi") end
+  if not row then return nil, errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı") end
   return user_model.serialize(row)
 end
 
@@ -53,7 +53,7 @@ function _M.create(_, input)
     if err and err.sqlstate == "23505" then
       return nil, errors.new("EMAIL_TAKEN", "Bu e-posta zaten kullaniliyor")
     end
-    return nil, err or errors.new("INTERNAL_ERROR", "Kullanici olusturulamadi")
+    return nil, err or errors.new("INTERNAL_ERROR", "Kullanıcı oluşturulamadi")
   end
   require("services.audit_service").record("user.create", {
     entity_type = "user", entity_id = row.id,
@@ -73,11 +73,11 @@ function _M.update(identity, id, input)
   local ok, err = query.with_transaction(function()
     local old, ferr = user_repo.find_for_update(id)
     if ferr then return nil, ferr end
-    if not old then return nil, errors.new("USER_NOT_FOUND", "Kullanici bulunamadi") end
+    if not old then return nil, errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı") end
     local demoting = old.role == "admin" and input.role ~= nil and input.role ~= "admin"
     local deactivating = old.is_active and input.is_active == false
     if id == identity.user_id and (demoting or deactivating) then
-      return nil, errors.new("SELF_ACTION_FORBIDDEN", "Kendi hesabiniz uzerinde bu islem yapilamaz")
+      return nil, errors.new("SELF_ACTION_FORBIDDEN", "Kendi hesabiniz uzerinde bu islem yapılamaz")
     end
     if (demoting or deactivating) and old.role == "admin" and old.is_active then
       local admins, aerr = user_repo.lock_active_admins()
@@ -100,7 +100,7 @@ function _M.update(identity, id, input)
       if uerr and uerr.sqlstate == "23505" then
         return nil, errors.new("EMAIL_TAKEN", "Bu e-posta zaten kullaniliyor")
       end
-      return nil, uerr or errors.new("INTERNAL_ERROR", "Guncellenemedi")
+      return nil, uerr or errors.new("INTERNAL_ERROR", "Güncellenemedi")
     end
     audit_old = user_model.serialize_for_audit(old)
     audit_new = user_model.serialize_for_audit(new_row)
@@ -124,7 +124,7 @@ function _M.delete(identity, id)
   local ok, err = query.with_transaction(function()
     local old, ferr = user_repo.find_for_update(id)
     if ferr then return nil, ferr end
-    if not old then return nil, errors.new("USER_NOT_FOUND", "Kullanici bulunamadi") end
+    if not old then return nil, errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı") end
     if old.role == "admin" and old.is_active then
       local admins, aerr = user_repo.lock_active_admins()
       if not admins then return nil, aerr end
@@ -132,7 +132,7 @@ function _M.delete(identity, id)
     end
     local deleted, derr = user_repo.delete(id)
     if derr then return nil, derr end
-    if not deleted then return nil, errors.new("USER_NOT_FOUND", "Kullanici bulunamadi") end
+    if not deleted then return nil, errors.new("USER_NOT_FOUND", "Kullanıcı bulunamadı") end
     audit_old = user_model.serialize_for_audit(old)
     return true
   end)

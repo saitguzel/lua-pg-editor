@@ -1,4 +1,4 @@
--- DatabaseObject modeli: sema tarayici nesne temsili { schema, name, kind, extra? }
+-- DatabaseObject modeli: şema tarayıcı nesne temsili { schema, name, kind, extra? }
 -- kind: pg_shared.types.OBJECT_KINDS (F25 ile sequence/type_*/domain/extension/... eklendi); information_schema
 -- degerleri ve ham relkind harfleri de kabul edilir.
 local _M = {}
@@ -12,7 +12,7 @@ function _M.from_row(row)
   kind = KIND_ALIAS[kind] or kind or "table"
   local extra = row.extra
   if extra == "" or extra == require("cjson.safe").null then extra = nil end
-  -- rutin satirlari (oid kolonu var): extra yapisal { oid, args, returns, language }
+  -- rutin satırlari (oid kolonu var): extra yapısal { oid, args, returns, language }
   if row.oid ~= nil and row.oid ~= require("cjson.safe").null then
     extra = { oid = row.oid, args = row.args, returns = row.returns, language = row.language }
   end

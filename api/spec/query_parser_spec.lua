@@ -34,7 +34,7 @@ describe("sql_statements", function()
 end)
 
 describe("validate_expression (custom_where)", function()
-  it("gecerli ifadeyi kabul eder", function()
+  it("geçerli ifadeyi kabul eder", function()
     assert.is_true(parser.validate_expression("status = 'x' AND (a > 1 OR b IS NULL)"))
     assert.is_true(parser.validate_expression("name = ')'"))
   end)
@@ -65,7 +65,7 @@ describe("table_browser.build_where", function()
 end)
 
 describe("pool_manager havuz adi", function()
-  it("DB/host/kullanici/guncelleme degisince farkli havuz", function()
+  it("DB/host/kullanıcı/güncelleme degisince farkli havuz", function()
     local pm = require("db.pool_manager")
     local base = { id = "c1", host = "h", port = 5432, database = "a", username = "u", updated_at = "t1" }
     local other = {}
@@ -82,7 +82,7 @@ describe("ssh_tunnel.command", function()
   local conn = { host = "db", port = 5432, ssh_host = "bastion", ssh_port = 2222, ssh_username = "u" }
   local files = { known_hosts = "/tmp/kh", key = "/tmp/k" }
 
-  it("parola: sshpass -e, parola ortamda (komut satirinda degil), strict host key", function()
+  it("parola: sshpass -e, parola ortamda (komut satırinda degil), strict host key", function()
     conn.ssh_auth_method = "password"
     local args, env = t.command(conn, 40001, files, { password = "gizli" })
     local line = table.concat(args, " ")

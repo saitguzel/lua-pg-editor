@@ -72,7 +72,7 @@ test.describe("browse (codd tablo tarayıcı)", () => {
     // ekle: id varsayılan, name değer
     await page.getByRole("button", { name: "+ Satır ekle" }).click();
     const dlg = page.getByRole("dialog", { name: "Yeni satır" });
-    await dlg.locator("#val-name").fill("yeni-satir");
+    await dlg.locator("#val-name").fill("yeni-satır");
     await dlg.getByRole("button", { name: "Kaydet" }).click();
     await expect(dlg).toHaveCount(0);
     await expect(page.getByText("/ 121 satır")).toBeVisible();

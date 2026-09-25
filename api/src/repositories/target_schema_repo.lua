@@ -8,7 +8,7 @@ end
 
 _M.quote_ident = quote_ident
 
--- Sistem semalari (pg_catalog, information_schema, pg_toast*, pg_temp*) listelenmez
+-- Sistem şemalari (pg_catalog, information_schema, pg_toast*, pg_temp*) listelenmez
 local USER_SCHEMAS = [[n.nspname NOT IN ('pg_catalog', 'information_schema')
   AND n.nspname NOT LIKE 'pg\_toast%' AND n.nspname NOT LIKE 'pg\_temp%']]
 local KIND_SQL = [[CASE c.relkind WHEN 'r' THEN 'table' WHEN 'p' THEN 'partitioned' WHEN 'v' THEN 'view'
@@ -43,7 +43,7 @@ local function rel(kinds, kind_sql)
     where = "c.relkind IN (" .. kinds .. ") AND NOT c.relispartition", name = "c.relname",
     select = "c.relname AS name, " .. kind_sql .. " AS kind, NULL::text AS extra" }
 end
--- Rutinlerde extra yapisal: oid/args/returns/language ayri kolon gelir, model bunlari extra{} altinda toplar
+-- Rutinlerde extra yapısal: oid/args/returns/language ayri kolon gelir, model bunlari extra{} altinda toplar
 -- (kenar cubugu rutin menusu /routines/:kind/:oid icin oid'ye ihtiyac duyar).
 local function proc(kinds, kind_sql)
   return { from = "pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang",
@@ -69,7 +69,7 @@ local CATEGORY = {
   sequences = rel("'S'", "'sequence'"),
   functions = proc("'f', 'a', 'w'", FUNC_KIND),
   procedures = proc("'p'", "'procedure'"),
-  -- dizi tipleri (typelem) ve tablo satir tipleri (typrelid + relkind<>'c') haric
+  -- dizi tipleri (typelem) ve tablo satır tipleri (typrelid + relkind<>'c') haric
   types = { from = "pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace LEFT JOIN pg_class c ON c.oid = t.typrelid",
     where = "t.typtype IN ('b', 'c', 'e', 'r') AND t.typelem = 0 AND (t.typrelid = 0 OR c.relkind = 'c')",
     name = "t.typname", select = "t.typname AS name, " .. TYPE_KIND .. " AS kind, NULL::text AS extra" },
@@ -92,17 +92,20 @@ function _M.escape_like(s)
   return (tostring(s):gsub("[\\%%_]", function(c) return "\\" .. c end))
 end
 
--- Liste SQL'i: $1 = sema, $2 = %q% (q verilmisse); limit/offset dogrulanmis tamsayidir
+-- Liste SQL'i: $1 = şema, $2 = %q% (q verilmisse); limit/offset parametreli $n (faz-31)
 function _M.category_sql(category, with_q, limit, offset)
   local c = CATEGORY[category]
   if not c then return nil end
-  return "SELECT n.nspname AS schema, " .. c.select .. " FROM " .. c.from .. " WHERE n.nspname = $1 AND " .. c.where
-    .. (with_q and (" AND " .. c.name .. " ILIKE $2 ESCAPE '\\'") or "") .. " ORDER BY " .. c.name
-    .. (limit and (" LIMIT " .. math.floor(limit)) or "")
-    .. (offset and offset > 0 and (" OFFSET " .. math.floor(offset)) or "")
+  local sql = "SELECT n.nspname AS schema, " .. c.select .. " FROM " .. c.from .. " WHERE n.nspname = $1 AND " .. c.where
+  local idx = 1
+  if with_q then idx = idx + 1; sql = sql .. " AND " .. c.name .. " ILIKE $" .. idx .. " ESCAPE '\\'" end
+  sql = sql .. " ORDER BY " .. c.name
+  if limit then idx = idx + 1; sql = sql .. " LIMIT $" .. idx end
+  if offset and offset > 0 then idx = idx + 1; sql = sql .. " OFFSET $" .. idx end
+  return sql
 end
 
--- Sayac SQL'i: 16 kategori tek round-trip (UNION ALL), $1 = sema
+-- Sayac SQL'i: 16 kategori tek round-trip (UNION ALL), $1 = şema
 function _M.count_categories_sql()
   local parts = {}
   for i, cat in ipairs(CATEGORY_ORDER) do
@@ -124,10 +127,16 @@ function _M.count_categories(pg, schema)
 end
 
 function _M.list_category(pg, category, schema, q, limit, offset)
-  local sql = _M.category_sql(category, q ~= nil, limit, offset)
+  local has_q = q ~= nil
+  local has_limit = limit ~= nil
+  local has_offset = offset ~= nil and offset > 0
+  local sql = _M.category_sql(category, has_q, has_limit and limit or nil, has_offset and offset or nil)
   if not sql then return nil, { message = "bilinmeyen kategori" } end
-  if q then return pg:query(sql, schema, "%" .. _M.escape_like(q) .. "%") end
-  return pg:query(sql, schema)
+  local params = { schema }
+  if has_q then params[#params + 1] = "%" .. _M.escape_like(q) .. "%" end
+  if has_limit then params[#params + 1] = math.floor(limit) end
+  if has_offset then params[#params + 1] = math.floor(offset) end
+  return pg:query(sql, unpack(params))
 end
 
 local RULE_EVENT = { ["1"] = "SELECT", ["2"] = "UPDATE", ["3"] = "INSERT", ["4"] = "DELETE" }
@@ -182,7 +191,7 @@ function _M.other_object_kind(pg, schema, name)
   return res and res[1] and res[1].kind or nil
 end
 
--- Iliski olmayan nesne detayi (kategoriye ozel alanlar); satir yoksa nil
+-- Iliski olmayan nesne detayi (kategoriye ozel alanlar); satır yoksa nil
 local DETAIL_SQL = {
   sequence = [[SELECT s.data_type::text AS data_type, s.start_value AS start, s.increment_by AS increment,
       s.min_value AS min, s.max_value AS max, s.cache_size AS cache, s.cycle, s.last_value,
@@ -287,7 +296,7 @@ function _M.object_kind(pg, schema, name)
   return res and res[1] and RELKIND[res[1].relkind] or nil
 end
 
--- Yapi sorgulari: $1 = '"sema"."ad"' (regclass). pg_catalog tabanli, codd'daki alanlar.
+-- Yapı sorgulari: $1 = '"şema"."ad"' (regclass). pg_catalog tabanli, codd'daki alanlar.
 local function qualified(schema, table) return quote_ident(schema) .. "." .. quote_ident(table) end
 
 function _M.list_indexes(pg, schema, table)
@@ -306,7 +315,7 @@ function _M.list_constraints(pg, schema, table)
     ORDER BY contype = 'p' DESC, contype, conname]], qualified(schema, table))
 end
 
--- cok kolonlu FK'ler tek satir (conkey/confkey sirasiyla); sema eslesmesi OID uzerinden
+-- cok kolonlu FK'ler tek satır (conkey/confkey sirasiyla); şema eslesmesi OID uzerinden
 function _M.list_foreign_keys(pg, schema, table)
   return pg:query([[SELECT c.conname AS name,
       ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY k(n, o)
@@ -339,7 +348,7 @@ function _M.get_size(pg, schema, table)
     index_bytes = tonumber(r.index_bytes), stats = stats and stats[1] or nil }
 end
 
--- Completion katalogu: tek sorguda tum kullanici nesneleri ve kolonlari (kolonsuz nesneler dahil)
+-- Completion katalogu: tek sorguda tum kullanıcı nesneleri ve kolonlari (kolonsuz nesneler dahil)
 function _M.completion_catalog(pg)
   local schemas, err = _M.list_schemas(pg)
   if not schemas then return nil, err end
